@@ -12,7 +12,7 @@ from state import State
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
-def sample_z(y: np.ndarray, state: State) -> np.ndarray:
+def sample_z(y: np.ndarray, state: State, rng: np.random.Generator) -> np.ndarray:
     """Sample cluster assignments for each data point.
 
     Uses the current values of pi and mu to compute posterior
@@ -21,6 +21,7 @@ def sample_z(y: np.ndarray, state: State) -> np.ndarray:
     Args:
         y: Observed data points.
         state: Current state containing pi and mu values.
+        rng: Random number generator.
 
     Returns:
         New cluster assignments for each data point.
@@ -34,26 +35,35 @@ def sample_z(y: np.ndarray, state: State) -> np.ndarray:
     logw -= logw.max(axis=1, keepdims=True)  # pylint: disable=unexpected-keyword-arg
     probs = np.exp(logw)
     probs /= probs.sum(axis=1, keepdims=True)
-    u = np.random.rand(len(y), 1)
+    u = rng.random((len(y), 1))
     return (np.cumsum(probs, axis=1) > u).argmax(axis=1)
 
 
-def sample_pi(z: np.ndarray, K: int, alpha: float = 1.0) -> np.ndarray:
+def sample_pi(
+    z: np.ndarray, K: int, rng: np.random.Generator, alpha: float = 1.0
+) -> np.ndarray:
     """Sample mixture weights from Dirichlet distribution.
 
     Args:
         z: Current cluster assignments.
         K: Number of mixture components.
+        rng: Random number generator.
         alpha: Dirichlet concentration parameter.
 
     Returns:
         New mixture weights sampled from posterior Dirichlet.
     """
-    return np.random.dirichlet(alpha + np.bincount(z, minlength=K))
+    return rng.dirichlet(alpha + np.bincount(z, minlength=K))
 
 
+# pylint: disable=too-many-arguments
 def sample_mu(
-    y: np.ndarray, z: np.ndarray, K: int, m0: float = 0.0, s0_2: float = 25.0
+    y: np.ndarray,
+    z: np.ndarray,
+    K: int,
+    rng: np.random.Generator,
+    m0: float = 0.0,
+    s0_2: float = 25.0,
 ) -> np.ndarray:
     """Sample mean parameters from normal distributions.
 
@@ -64,6 +74,7 @@ def sample_mu(
         y: Observed data points.
         z: Current cluster assignments.
         K: Number of mixture components.
+        rng: Random number generator.
         m0: Prior mean for component means.
         s0_2: Prior variance for component means.
 
@@ -75,16 +86,16 @@ def sample_mu(
         idx = z == k
         n_k = idx.sum()
         if n_k == 0:
-            mu[k] = np.random.normal(m0, np.sqrt(s0_2))
+            mu[k] = rng.normal(m0, np.sqrt(s0_2))
         else:
             ybar = y[idx].mean()
             post_var = 1.0 / (n_k + 1 / s0_2)
             post_mean = post_var * (n_k * ybar + m0 / s0_2)
-            mu[k] = np.random.normal(post_mean, np.sqrt(post_var))
+            mu[k] = rng.normal(post_mean, np.sqrt(post_var))
     return mu
 
 
-def gibbs_step(y: np.ndarray, state: State, K: int) -> State:
+def gibbs_step(y: np.ndarray, state: State, K: int, rng: np.random.Generator) -> State:
     """Perform one step of the Gibbs sampler.
 
     Sequentially samples z, pi, and mu given the current state.
@@ -93,13 +104,14 @@ def gibbs_step(y: np.ndarray, state: State, K: int) -> State:
         y: Observed data points.
         state: Current state of the sampler.
         K: Number of mixture components.
+        rng: Random number generator.
 
     Returns:
         New state after one Gibbs sampling step.
     """
-    z = sample_z(y, state)
-    pi = sample_pi(z, K)
-    mu = sample_mu(y, z, K)
+    z = sample_z(y, state, rng)
+    pi = sample_pi(z, K, rng)
+    mu = sample_mu(y, z, K, rng)
     return State(z, pi, mu)
 
 
@@ -122,7 +134,7 @@ def run_chain(y: np.ndarray, K: int, n_iter: int, burn: int, seed: int):
     kept = []
     t0 = time.perf_counter()
     for it in range(n_iter):
-        state = gibbs_step(y, state, K)
+        state = gibbs_step(y, state, K, rng)
         if it >= burn:
             kept.append(state.relabel().mu.copy())
     return np.vstack(kept), time.perf_counter() - t0
@@ -133,7 +145,7 @@ if __name__ == "__main__":
     ap.add_argument(
         "--data", type=str, default="data.npy", help="Path to the data file"
     )
-    ap.add_argument("--K", type=int, required=True, help="Number of mixture components")
+    ap.add_argument("--K", type=int, default=4, help="Number of mixture components")
     ap.add_argument("--n_iter", type=int, default=10000, help="Number of iterations")
     ap.add_argument("--burn", type=int, default=2000, help="Burn-in period")
     ap.add_argument("--chains", type=int, default=4, help="Number of chains")
