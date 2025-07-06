@@ -55,6 +55,7 @@ pre-commit run pylint
 
 ```
 .
+├── gibbs_sampler.py        # Gibbs Sampler implementation
 ├── generate_data.py        # Data generation
 ├── .pre-commit-config.yaml # Pre-commit configuration
 ├── .pylintrc               # Pylint configuration
