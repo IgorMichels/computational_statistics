@@ -156,7 +156,7 @@ if __name__ == "__main__":
 
     chains, times = [], []
     print(f"Running {args.chains} Gibbs chains…")
-    for c in range(args.chains):
+    for _ in range(args.chains):
         mu, rt = run_chain(
             y, args.K, args.n_iter, args.burn, int(rng_master.integers(2**32))
         )
