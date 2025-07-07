@@ -17,7 +17,7 @@ weights = [0.2, 0.3, 0.1, 0.4]
 classes = np.random.choice(range(K), size=n, p=weights)
 sample_means = [means[c] for c in classes]
 data = np.random.normal(loc=sample_means, scale=sigma)
-np.save("data.npy", data)
+np.save("../data/data.npy", data)
 
 # plot generator density
 x = np.linspace(-5.5, 8.5, 1000)
@@ -51,7 +51,7 @@ fig.update_layout(
     width=1000,
 )
 
-fig.write_image("figures/generator_density.png")
+fig.write_image("../figures/generator_density.png")
 
 # plot histogram of simulated data
 fig_hist = go.Figure()
@@ -84,4 +84,4 @@ fig_hist.update_layout(
     width=1000,
 )
 
-fig_hist.write_image("figures/data_histogram.png")
+fig_hist.write_image("../figures/data_histogram.png")

@@ -4,7 +4,6 @@ import time
 import warnings
 
 import numpy as np
-
 from metrics import credible_interval, ess_1d, rhat_scalar
 from plots import create_diagnostic_plots
 from state import State
@@ -143,7 +142,7 @@ def run_chain(y: np.ndarray, K: int, n_iter: int, burn: int, seed: int):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Gibbs Sampler for Gaussian mixture")
     ap.add_argument(
-        "--data", type=str, default="data.npy", help="Path to the data file"
+        "--data", type=str, default="../data/data.npy", help="Path to the data file"
     )
     ap.add_argument("--K", type=int, default=4, help="Number of mixture components")
     ap.add_argument("--n_iter", type=int, default=10000, help="Number of iterations")

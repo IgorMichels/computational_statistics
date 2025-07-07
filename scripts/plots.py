@@ -3,7 +3,6 @@ from typing import List
 import numpy as np
 import plotly.graph_objects as go
 import plotly.subplots as sp
-
 from metrics import acf_1d
 
 
@@ -84,7 +83,7 @@ def create_trace_plots(
     )
     fig_trace_all.update_xaxes(gridcolor="lightgray")
     fig_trace_all.update_yaxes(gridcolor="lightgray")
-    fig_trace_all.write_image(f"figures/{sampler_name}_trace.png")
+    fig_trace_all.write_image(f"../figures/{sampler_name}_trace.png")
 
 
 def create_acf_plots(
@@ -131,7 +130,7 @@ def create_acf_plots(
     )
     fig_acf_all.update_xaxes(gridcolor="lightgray")
     fig_acf_all.update_yaxes(gridcolor="lightgray")
-    fig_acf_all.write_image(f"figures/{sampler_name}_acf.png")
+    fig_acf_all.write_image(f"../figures/{sampler_name}_acf.png")
 
 
 def create_histogram_plots(
@@ -177,7 +176,7 @@ def create_histogram_plots(
     )
     fig_hist_all.update_xaxes(gridcolor="lightgray")
     fig_hist_all.update_yaxes(gridcolor="lightgray")
-    fig_hist_all.write_image(f"figures/{sampler_name}_hist.png")
+    fig_hist_all.write_image(f"../figures/{sampler_name}_hist.png")
 
 
 def create_diagnostic_plots(
