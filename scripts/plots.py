@@ -43,14 +43,20 @@ def setup_plot_colors_and_positions(K: int, n_chains: int):
 
 
 def create_trace_plots(
-    sampler_name: str, chains: List[np.ndarray], K: int, n_chains: int
+    sampler_name: str, chains: List[np.ndarray], K: int, n_chains: int, data_name: str
 ):
     """Create trace plots for all chains and parameters.
 
+    Generates trace plots showing the evolution of parameter values across
+    iterations for each MCMC chain. Each parameter is displayed with a
+    different color, and each chain gets its own subplot.
+
     Args:
+        sampler_name: Name of the sampling algorithm used.
         chains: List of sample arrays, one per chain.
         K: Number of mixture components.
         n_chains: Number of chains.
+        data_name: Name of the dataset for file naming.
     """
     param_colors, positions = setup_plot_colors_and_positions(K, n_chains)
     n_rows = max(positions, key=lambda x: x[0])[0]
@@ -83,18 +89,24 @@ def create_trace_plots(
     )
     fig_trace_all.update_xaxes(gridcolor="lightgray")
     fig_trace_all.update_yaxes(gridcolor="lightgray")
-    fig_trace_all.write_image(f"../figures/{sampler_name}_trace.png")
+    fig_trace_all.write_image(f"../figures/{data_name}/{sampler_name}_trace.png")
 
 
 def create_acf_plots(
-    sampler_name: str, chains: List[np.ndarray], K: int, n_chains: int
+    sampler_name: str, chains: List[np.ndarray], K: int, n_chains: int, data_name: str
 ):
     """Create autocorrelation function plots for all chains and parameters.
 
+    Generates autocorrelation function (ACF) plots to assess the serial
+    correlation in MCMC samples. Lower autocorrelation indicates better
+    mixing and more efficient sampling.
+
     Args:
+        sampler_name: Name of the sampling algorithm used.
         chains: List of sample arrays, one per chain.
         K: Number of mixture components.
         n_chains: Number of chains.
+        data_name: Name of the dataset for file naming.
     """
     param_colors, positions = setup_plot_colors_and_positions(K, n_chains)
     n_rows = max(positions, key=lambda x: x[0])[0]
@@ -130,18 +142,24 @@ def create_acf_plots(
     )
     fig_acf_all.update_xaxes(gridcolor="lightgray")
     fig_acf_all.update_yaxes(gridcolor="lightgray")
-    fig_acf_all.write_image(f"../figures/{sampler_name}_acf.png")
+    fig_acf_all.write_image(f"../figures/{data_name}/{sampler_name}_acf.png")
 
 
 def create_histogram_plots(
-    sampler_name: str, chains: List[np.ndarray], K: int, n_chains: int
+    sampler_name: str, chains: List[np.ndarray], K: int, n_chains: int, data_name: str
 ):
     """Create histogram plots for all chains and parameters.
 
+    Generates histogram plots showing the marginal posterior distributions
+    for each parameter from each MCMC chain. Overlapping histograms help
+    visualize the posterior density and assess convergence across chains.
+
     Args:
+        sampler_name: Name of the sampling algorithm used.
         chains: List of sample arrays, one per chain.
         K: Number of mixture components.
         n_chains: Number of chains.
+        data_name: Name of the dataset for file naming.
     """
     param_colors, positions = setup_plot_colors_and_positions(K, n_chains)
     n_rows = max(positions, key=lambda x: x[0])[0]
@@ -176,19 +194,26 @@ def create_histogram_plots(
     )
     fig_hist_all.update_xaxes(gridcolor="lightgray")
     fig_hist_all.update_yaxes(gridcolor="lightgray")
-    fig_hist_all.write_image(f"../figures/{sampler_name}_hist.png")
+    fig_hist_all.write_image(f"../figures/{data_name}/{sampler_name}_hist.png")
 
 
 def create_diagnostic_plots(
-    sampler_name: str, chains: List[np.ndarray], K: int, n_chains: int
+    sampler_name: str, chains: List[np.ndarray], K: int, n_chains: int, data_name: str
 ):
     """Create all diagnostic plots (trace, ACF, and histograms).
 
+    Generates a comprehensive set of diagnostic plots for MCMC analysis,
+    including trace plots for convergence assessment, autocorrelation
+    function plots for mixing evaluation, and histograms for posterior
+    visualization.
+
     Args:
+        sampler_name: Name of the sampling algorithm used.
         chains: List of sample arrays, one per chain.
         K: Number of mixture components.
         n_chains: Number of chains.
+        data_name: Name of the dataset for file naming.
     """
-    create_trace_plots(sampler_name, chains, K, n_chains)
-    create_acf_plots(sampler_name, chains, K, n_chains)
-    create_histogram_plots(sampler_name, chains, K, n_chains)
+    create_trace_plots(sampler_name, chains, K, n_chains, data_name)
+    create_acf_plots(sampler_name, chains, K, n_chains, data_name)
+    create_histogram_plots(sampler_name, chains, K, n_chains, data_name)

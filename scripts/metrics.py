@@ -1,3 +1,4 @@
+import json
 from typing import List, Tuple
 
 import numpy as np
@@ -74,16 +75,18 @@ def credible_interval(samples: np.ndarray, alpha: float = 0.05):
 
 
 def create_metrics(
-    chains: List[np.ndarray], K: int
+    chains: List[np.ndarray], K: int, data_name: str
 ) -> Tuple[np.ndarray, List[float], List[float], np.ndarray, np.ndarray]:
     """Create comprehensive metrics from MCMC chains.
 
     Computes posterior mean, R-hat convergence diagnostic, effective sample size,
-    and credible intervals for each parameter from multiple MCMC chains.
+    and credible intervals for each parameter from multiple MCMC chains. The
+    computed metrics are also saved to a JSON file in the data directory.
 
     Args:
         chains: List of MCMC chains, each containing samples for K parameters.
         K: Number of parameters (mixture components).
+        data_name: Name of the dataset (used for saving metrics file).
 
     Returns:
         Tuple containing:
@@ -100,5 +103,17 @@ def create_metrics(
 
     ci_lower = np.array([credible_interval(pooled[:, k])[0] for k in range(K)])
     ci_upper = np.array([credible_interval(pooled[:, k])[1] for k in range(K)])
+
+    with open(f"../data/{data_name}/metrics.json", "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "mu_mean": mu_mean.tolist(),
+                "rhat": rhat,
+                "ess": ess,
+                "ci_lower": ci_lower.tolist(),
+                "ci_upper": ci_upper.tolist(),
+            },
+            f,
+        )
 
     return mu_mean, rhat, ess, ci_lower, ci_upper

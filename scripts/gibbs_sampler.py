@@ -14,9 +14,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description="Gibbs Sampler for Gaussian mixture")
-    ap.add_argument(
-        "--data", type=str, default="../data/data.npy", help="Path to the data file"
-    )
+    ap.add_argument("--data", type=str, default="example_1", help="Data directory")
     ap.add_argument("--K", type=int, default=4, help="Number of mixture components")
     ap.add_argument("--n_iter", type=int, default=10000, help="Number of iterations")
     ap.add_argument("--burn", type=int, default=2000, help="Burn-in period")
@@ -26,7 +24,7 @@ if __name__ == "__main__":
     args = ap.parse_args()
 
     rng_master = np.random.default_rng(args.seed)
-    y = np.load(args.data)
+    y = np.load(f"../data/{args.data}/data.npy")
 
     chains, times = [], []
     print(f"Running {args.chains} Gibbs chains…")
@@ -45,8 +43,8 @@ if __name__ == "__main__":
         chains.append(mu)
         times.append(rt)
 
-    create_diagnostic_plots("gibbs", chains, args.K, args.chains)
-    mu_mean, rhat, ess, ci_lower, ci_upper = create_metrics(chains, args.K)
+    create_diagnostic_plots("gibbs", chains, args.K, args.chains, args.data)
+    mu_mean, rhat, ess, ci_lower, ci_upper = create_metrics(chains, args.K, args.data)
 
     print("\n=== Gibbs SUMMARY ===")
     print("Posterior mean μ  :", np.round(mu_mean, 4))

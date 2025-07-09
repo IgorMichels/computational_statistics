@@ -16,9 +16,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(
         description="Tempered Transitions for Gaussian mixture"
     )
-    ap.add_argument(
-        "--data", type=str, default="../data/data.npy", help="Path to the data file"
-    )
+    ap.add_argument("--data", type=str, default="example_1", help="Data directory")
     ap.add_argument("--K", type=int, default=4, help="Number of mixture components")
     ap.add_argument("--n_iter", type=int, default=5000, help="Number of iterations")
     ap.add_argument("--burn", type=int, default=1000, help="Burn-in period")
@@ -33,7 +31,7 @@ if __name__ == "__main__":
     args = ap.parse_args()
 
     rng_master = np.random.default_rng(args.seed)
-    y = np.load(args.data)
+    y = np.load(f"../data/{args.data}/data.npy")
 
     chains, times = [], []
     acceptance_rates = []
@@ -55,8 +53,10 @@ if __name__ == "__main__":
         times.append(rt)
         acceptance_rates.append(acc_rate)
 
-    create_diagnostic_plots("tempered_transitions", chains, args.K, args.chains)
-    mu_mean, rhat, ess, ci_lower, ci_upper = create_metrics(chains, args.K)
+    create_diagnostic_plots(
+        "tempered_transitions", chains, args.K, args.chains, args.data
+    )
+    mu_mean, rhat, ess, ci_lower, ci_upper = create_metrics(chains, args.K, args.data)
 
     print("\n=== TEMPERED TRANSITIONS SUMMARY ===")
     print("Posterior mean μ   :", np.round(mu_mean, 4))
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     print("R-hat (μ)          :", np.round(rhat, 3))
     print("ESS  (μ)           :", np.round(ess, 1))
     print(f"Average time / chain: {np.mean(times):.2f}s")
-    print(f"Average acceptance rate: {np.mean(acceptance_rates):.3f}")
+    print(f"Average acceptance rate: {np.mean(acceptance_rates):.2%}")
     print(f"Parameters: {args.n_temps} temperatures, max_temp={args.max_temp}")
     print(f"            {args.n_gibbs_per_temp} Gibbs steps per temperature")
 
