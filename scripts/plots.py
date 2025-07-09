@@ -63,7 +63,9 @@ def create_trace_plots(
     n_cols = max(positions, key=lambda x: x[1])[1]
 
     fig_trace_all = sp.make_subplots(
-        rows=n_rows, cols=n_cols, subplot_titles=[f"Chain {c}" for c in range(n_chains)]
+        rows=n_rows,
+        cols=n_cols,
+        subplot_titles=[f"Chain {c+1}" for c in range(n_chains)],
     )
 
     for c, (row, col) in enumerate(positions):
@@ -73,7 +75,7 @@ def create_trace_plots(
                     y=chains[c][:, k],
                     mode="lines",
                     line={"width": 0.8, "color": param_colors[k]},
-                    name=f"$\\mu_{{{k}}}$",
+                    name=f"$\\mu_{{{k+1}}}$",
                     showlegend=(c == 0),
                 ),
                 row=row,
