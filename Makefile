@@ -30,7 +30,7 @@ local:
 	elapsed=$$((end_time - start_time)); \
 	echo "✅ Virtual environment configured!"; \
 	echo "⏱️  Time elapsed: $$elapsed seconds"; \
-  echo "🎯 To use: uv run <command> or activate with: source .venv/bin/activate"
+  echo "🎯 To use: source .venv/bin/activate"
 
 check:
 	@echo "🔍 Checking code quality..."
