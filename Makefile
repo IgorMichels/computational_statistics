@@ -15,18 +15,22 @@ help:
 	@echo "  make clean     - Clean temporary files"
 
 local:
-	@echo "🚀 Setting up local virtual environment with uv..."
-	@if ! command -v uv >/dev/null 2>&1; then \
+	@echo "🚀 Setting up local virtual environment..."
+	@start_time=$$(date +%s); \
+  if ! command -v uv >/dev/null 2>&1; then \
 		echo "❌ uv not found. Installing uv..."; \
 		curl -LsSf https://astral.sh/uv/install.sh | sh; \
 		echo "✅ uv installed successfully!"; \
-	fi
-	@echo "📦 Creating virtual environment and installing dependencies..."
-	@uv sync --dev
-	@echo "🪝 Setting up pre-commit hooks..."
-	@uv run pre-commit install
-	@echo "✅ Virtual environment configured!"
-	@echo "🎯 To use: uv run <command> or activate with: source .venv/bin/activate"
+	fi; \
+	echo "📦 Creating virtual environment and installing dependencies..."; \
+	uv sync --dev; \
+	echo "🪝 Setting up pre-commit hooks..."; \
+	uv run pre-commit install; \
+  end_time=$$(date +%s); \
+	elapsed=$$((end_time - start_time)); \
+	echo "✅ Virtual environment configured!"; \
+	echo "⏱️  Time elapsed: $$elapsed seconds"; \
+  echo "🎯 To use: uv run <command> or activate with: source .venv/bin/activate"
 
 check:
 	@echo "🔍 Checking code quality..."
@@ -51,4 +55,5 @@ clean:
 	@find . -type d -name ".mypy_cache" -delete
 	@rm -rf build/ dist/ *.egg-info/
 	@rm -f uv.lock
+	@rm -rf .venv/
 	@echo "✅ Cleanup completed!"
