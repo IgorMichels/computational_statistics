@@ -16,8 +16,8 @@ help:
 
 local:
 	@echo "🚀 Setting up local virtual environment..."
-	@start_time=$$(date +%s); \
-  if ! command -v uv >/dev/null 2>&1; then \
+	@start_time=$$(python3 -c "import time; print(int(time.time() * 1000))"); \
+	if ! command -v uv >/dev/null 2>&1; then \
 		echo "❌ uv not found. Installing uv..."; \
 		curl -LsSf https://astral.sh/uv/install.sh | sh; \
 		echo "✅ uv installed successfully!"; \
@@ -26,11 +26,11 @@ local:
 	uv sync --dev; \
 	echo "🪝 Setting up pre-commit hooks..."; \
 	uv run pre-commit install; \
-  end_time=$$(date +%s); \
+	end_time=$$(python3 -c "import time; print(int(time.time() * 1000))"); \
 	elapsed=$$((end_time - start_time)); \
 	echo "✅ Virtual environment configured!"; \
-	echo "⏱️  Time elapsed: $$elapsed seconds"; \
-  echo "🎯 To use: source .venv/bin/activate"
+	echo "⏱️  Time elapsed: $$elapsed ms"; \
+	echo "🎯 To use: source .venv/bin/activate"
 
 check:
 	@echo "🔍 Checking code quality..."
