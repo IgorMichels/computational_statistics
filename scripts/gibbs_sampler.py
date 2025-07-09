@@ -7,6 +7,7 @@ import numpy as np
 from metrics import credible_interval, ess_1d, rhat_scalar
 from plots import create_diagnostic_plots
 from state import State
+from tqdm import tqdm
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -132,7 +133,7 @@ def run_chain(y: np.ndarray, K: int, n_iter: int, burn: int, seed: int):
     state = State(rng.integers(0, K, len(y)), np.ones(K) / K, rng.normal(0, 1, K))
     kept = []
     t0 = time.perf_counter()
-    for it in range(n_iter):
+    for it in tqdm(range(n_iter)):
         state = gibbs_step(y, state, K, rng)
         if it >= burn:
             kept.append(state.relabel().mu.copy())
