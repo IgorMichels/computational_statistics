@@ -26,6 +26,8 @@ local:
 	uv sync --dev; \
 	echo "🪝 Setting up pre-commit hooks..."; \
 	uv run pre-commit install; \
+	mkdir -p data; \
+	mkdir -p figures; \
 	end_time=$$(python3 -c "import time; print(int(time.time() * 1000))"); \
 	elapsed=$$((end_time - start_time)); \
 	echo "✅ Virtual environment configured!"; \
