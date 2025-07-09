@@ -128,7 +128,7 @@ if __name__ == "__main__":
     weights = [0.2, 0.3, 0.1, 0.4]
     generate_data(n, means, weights, sigmas, "example_1")
 
-    sigmas = [1.0, 2.0, 0.5, 1.0, 0.25]
-    means = [-2.0, 0.0, 3.0, 5.0, 12.0]
+    sigmas = [1.0, 1.0, 1.0, 1.0, 1.0]
+    means = [-2.0, 0.0, 3.0, 5.0, 15.0]
     weights = [0.2, 0.3, 0.1, 0.35, 0.05]
     generate_data(n, means, weights, sigmas, "example_2")
