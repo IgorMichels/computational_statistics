@@ -31,7 +31,7 @@ if __name__ == "__main__":
     chains, times = [], []
     print(f"Running {args.chains} Gibbs chains…")
     for _ in range(args.chains):
-        mu, rt = run_chain(
+        mu, rt, _ = run_chain(
             y,
             args.K,
             args.n_iter,

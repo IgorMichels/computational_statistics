@@ -36,9 +36,10 @@ if __name__ == "__main__":
     y = np.load(args.data)
 
     chains, times = [], []
+    acceptance_rates = []
     print(f"Running {args.chains} Tempered Transitions chains...")
     for _ in range(args.chains):
-        mu, rt = run_chain(
+        mu, rt, acc_rate = run_chain(
             y,
             args.K,
             args.n_iter,
@@ -52,6 +53,7 @@ if __name__ == "__main__":
         )
         chains.append(mu)
         times.append(rt)
+        acceptance_rates.append(acc_rate)
 
     create_diagnostic_plots("tempered_transitions", chains, args.K, args.chains)
     mu_mean, rhat, ess, ci_lower, ci_upper = create_metrics(chains, args.K)
@@ -63,6 +65,7 @@ if __name__ == "__main__":
     print("R-hat (μ)          :", np.round(rhat, 3))
     print("ESS  (μ)           :", np.round(ess, 1))
     print(f"Average time / chain: {np.mean(times):.2f}s")
+    print(f"Average acceptance rate: {np.mean(acceptance_rates):.3f}")
     print(f"Parameters: {args.n_temps} temperatures, max_temp={args.max_temp}")
     print(f"            {args.n_gibbs_per_temp} Gibbs steps per temperature")
 

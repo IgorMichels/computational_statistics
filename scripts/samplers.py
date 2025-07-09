@@ -3,10 +3,43 @@
 # pylint: disable=too-many-locals
 
 import time
+from typing import Tuple
 
 import numpy as np
 from state import State
 from tqdm import tqdm
+
+
+def compute_log_likelihood(y: np.ndarray, state: State) -> float:
+    """Compute the log-likelihood of the data given the current state.
+
+    Calculates the log-likelihood of observed data points under a Gaussian
+    mixture model with current parameters (mixing weights pi and means mu).
+    Uses log-sum-exp trick for numerical stability.
+
+    Args:
+        y: Observed data points.
+        state: Current state containing pi (mixing weights) and mu (means).
+
+    Returns:
+        Log-likelihood value for the entire dataset.
+    """
+    K = len(state.pi)
+    log_like = 0.0
+
+    for yi in y:
+        log_weights = np.empty(K)
+        for k in range(K):
+            log_weights[k] = (
+                np.log(state.pi[k])
+                - 0.5 * (yi - state.mu[k]) ** 2
+                - 0.5 * np.log(2 * np.pi)
+            )
+
+        max_log_weight = log_weights.max()
+        log_like += max_log_weight + np.log(np.exp(log_weights - max_log_weight).sum())
+
+    return log_like
 
 
 def create_temperature_ladder(
@@ -152,11 +185,11 @@ def tempered_transition_step(
     rng: np.random.Generator,
     temperatures_ladder: np.ndarray,
     n_gibbs_per_temp: int = 10,
-) -> State:
-    """Perform one tempered transition step.
+) -> Tuple[State, bool]:
+    """Perform one tempered transition step with acceptance/rejection.
 
     Moves through the temperature ladder, performing Gibbs steps at each temperature,
-    then attempts to swap between adjacent temperatures.
+    then uses Metropolis criterion to accept or reject the proposal.
 
     Args:
         y: Observed data points.
@@ -167,15 +200,26 @@ def tempered_transition_step(
         n_gibbs_per_temp: Number of Gibbs steps per temperature.
 
     Returns:
-        New state after tempered transition.
+        Tuple of (new_state, accepted) where accepted indicates if proposal was accepted.
     """
+    initial_state = state
     current_state = state
 
     for beta in temperatures_ladder:
         for _ in range(n_gibbs_per_temp):
             current_state = gibbs_step(y, current_state, K, rng, beta=beta)
 
-    return current_state
+    if temperatures_ladder.shape[0] == 1:
+        return current_state, True
+
+    initial_loglik = compute_log_likelihood(y, initial_state)
+    final_loglik = compute_log_likelihood(y, current_state)
+    log_ratio = final_loglik - initial_loglik
+
+    if np.log(rng.random()) < log_ratio:
+        return current_state, True
+
+    return initial_state, False
 
 
 def run_chain(
@@ -202,10 +246,12 @@ def run_chain(
         max_temp: Maximum temperature (1/beta_min).
         n_gibbs_per_temp: Number of Gibbs steps per temperature.
         placebo: Whether to use placebo on relabeling.
+        keep_last: Whether to keep the last temperature in the ladder.
 
     Returns:
-        Tuple of (samples, runtime) where samples contains the
-        post-burn-in samples and runtime is the elapsed time.
+        Tuple of (samples, runtime, acceptance_rate) where samples contains the
+        post-burn-in samples, runtime is the elapsed time, and acceptance_rate
+        is the fraction of proposals that were accepted.
     """
     rng = np.random.default_rng(seed)
 
@@ -213,12 +259,19 @@ def run_chain(
     state = State(rng.integers(0, K, len(y)), np.ones(K) / K, rng.normal(0, 1, K))
 
     kept = []
+    n_accepted = 0
     t0 = time.perf_counter()
+
     for it in tqdm(range(n_iter)):
-        state = tempered_transition_step(
+        state, accepted = tempered_transition_step(
             y, state, K, rng, temperatures_ladder, n_gibbs_per_temp
         )
+
+        if accepted:
+            n_accepted += 1
+
         if it >= burn:
             kept.append(state.relabel(placebo=placebo).mu.copy())
 
-    return np.vstack(kept), time.perf_counter() - t0
+    acceptance_rate = n_accepted / n_iter
+    return np.vstack(kept), time.perf_counter() - t0, acceptance_rate
