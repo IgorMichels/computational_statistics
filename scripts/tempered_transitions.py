@@ -1,3 +1,5 @@
+# pylint: disable=too-many-arguments
+
 import argparse
 import os
 import time
@@ -68,7 +70,6 @@ def sample_pi_tempered(
     return rng.dirichlet(tempered_alpha)
 
 
-# pylint: disable=too-many-arguments
 def sample_mu_tempered(
     y: np.ndarray,
     z: np.ndarray,
@@ -159,7 +160,6 @@ def compute_log_likelihood(y: np.ndarray, state: State) -> float:
     return log_like
 
 
-# pylint: disable=too-many-arguments
 def tempered_transition_step(
     y: np.ndarray,
     state: State,
@@ -199,7 +199,6 @@ def tempered_transition_step(
     return current_state
 
 
-# pylint: disable=too-many-arguments
 def run_tempered_chain(
     y: np.ndarray,
     K: int,
