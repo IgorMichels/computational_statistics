@@ -199,6 +199,7 @@ def tempered_transition_step(
     return current_state
 
 
+# pylint: disable=too-many-arguments
 def run_tempered_chain(
     y: np.ndarray,
     K: int,
