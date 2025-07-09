@@ -17,7 +17,7 @@ class State:
     pi: np.ndarray
     mu: np.ndarray
 
-    def relabel(self) -> "State":
+    def relabel(self, placebo: bool = False) -> "State":
         """Relabel the state by sorting components by their means.
 
         This function ensures identifiability by ordering components
@@ -26,6 +26,9 @@ class State:
         Returns:
             Relabeled state with components sorted by mean.
         """
+        if placebo:
+            return self
+
         order = np.argsort(self.mu)
         inv = np.empty_like(order)
         inv[order] = np.arange(len(order))
