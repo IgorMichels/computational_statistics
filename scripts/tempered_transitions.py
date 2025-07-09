@@ -7,7 +7,7 @@ import warnings
 import numpy as np
 from metrics import create_metrics
 from plots import create_diagnostic_plots
-from samplers import run_chain
+from samplers import run_parallel_chains
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -30,28 +30,22 @@ if __name__ == "__main__":
     ap.add_argument("--placebo", action="store_true", help="Use placebo on relabeling")
     args = ap.parse_args()
 
-    rng_master = np.random.default_rng(args.seed)
     y = np.load(f"../data/{args.data}/data.npy")
 
-    chains, times = [], []
-    acceptance_rates = []
     print(f"Running {args.chains} Tempered Transitions chains...")
-    for _ in range(args.chains):
-        mu, rt, acc_rate = run_chain(
-            y,
-            args.K,
-            args.n_iter,
-            args.burn,
-            int(rng_master.integers(2**32)),
-            n_temps=args.n_temps,
-            max_temp=args.max_temp,
-            n_gibbs_per_temp=args.n_gibbs_per_temp,
-            placebo=args.placebo,
-            keep_last=True,
-        )
-        chains.append(mu)
-        times.append(rt)
-        acceptance_rates.append(acc_rate)
+    chains, times, acceptance_rates = run_parallel_chains(
+        y,
+        args.K,
+        args.n_iter,
+        args.burn,
+        args.seed,
+        n_chains=args.chains,
+        n_temps=args.n_temps,
+        max_temp=args.max_temp,
+        n_gibbs_per_temp=args.n_gibbs_per_temp,
+        placebo=args.placebo,
+        keep_last=True,
+    )
 
     create_diagnostic_plots(
         "tempered_transitions", chains, args.K, args.chains, args.data

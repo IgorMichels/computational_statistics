@@ -7,7 +7,7 @@ import warnings
 import numpy as np
 from metrics import create_metrics
 from plots import create_diagnostic_plots
-from samplers import run_chain
+from samplers import run_parallel_chains
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -23,25 +23,21 @@ if __name__ == "__main__":
     ap.add_argument("--placebo", action="store_true", help="Use placebo on relabeling")
     args = ap.parse_args()
 
-    rng_master = np.random.default_rng(args.seed)
     y = np.load(f"../data/{args.data}/data.npy")
 
-    chains, times = [], []
     print(f"Running {args.chains} Gibbs chains…")
-    for _ in range(args.chains):
-        mu, rt, _ = run_chain(
-            y,
-            args.K,
-            args.n_iter,
-            args.burn,
-            int(rng_master.integers(2**32)),
-            n_temps=1,
-            max_temp=1,
-            n_gibbs_per_temp=1,
-            placebo=args.placebo,
-        )
-        chains.append(mu)
-        times.append(rt)
+    chains, times, acceptance_rates = run_parallel_chains(
+        y,
+        args.K,
+        args.n_iter,
+        args.burn,
+        args.seed,
+        n_chains=args.chains,
+        n_temps=1,
+        max_temp=1,
+        n_gibbs_per_temp=1,
+        placebo=args.placebo,
+    )
 
     create_diagnostic_plots("gibbs", chains, args.K, args.chains, args.data)
     mu_mean, rhat, ess, ci_lower, ci_upper = create_metrics(chains, args.K, args.data)

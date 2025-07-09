@@ -3,7 +3,8 @@
 # pylint: disable=too-many-locals
 
 import time
-from typing import Tuple
+from multiprocessing import Pool, cpu_count
+from typing import List, Tuple
 
 import numpy as np
 from state import State
@@ -222,6 +223,42 @@ def tempered_transition_step(
     return initial_state, False
 
 
+def _run_single_chain(args):
+    """Helper function to run a single chain (for parallelization).
+
+    Args:
+        args: Tuple containing all arguments needed for run_chain.
+
+    Returns:
+        Tuple of (samples, runtime, acceptance_rate) for one chain.
+    """
+    (
+        y,
+        K,
+        n_iter,
+        burn,
+        seed,
+        n_temps,
+        max_temp,
+        n_gibbs_per_temp,
+        placebo,
+        keep_last,
+    ) = args
+
+    return run_chain(
+        y,
+        K,
+        n_iter,
+        burn,
+        seed,
+        n_temps,
+        max_temp,
+        n_gibbs_per_temp,
+        placebo,
+        keep_last,
+    )
+
+
 def run_chain(
     y: np.ndarray,
     K: int,
@@ -275,3 +312,73 @@ def run_chain(
 
     acceptance_rate = n_accepted / n_iter
     return np.vstack(kept), time.perf_counter() - t0, acceptance_rate
+
+
+def run_parallel_chains(
+    y: np.ndarray,
+    K: int,
+    n_iter: int,
+    burn: int,
+    base_seed: int,
+    n_chains: int = 4,
+    n_temps: int = 10,
+    max_temp: float = 5.0,
+    n_gibbs_per_temp: int = 5,
+    placebo: bool = False,
+    keep_last: bool = False,
+) -> Tuple[List[np.ndarray], List[float], List[float]]:
+    """Run multiple chains in parallel using multiprocessing.
+
+    Args:
+        y: Observed data points.
+        K: Number of mixture components.
+        n_iter: Total number of iterations per chain.
+        burn: Number of burn-in iterations to discard.
+        base_seed: Base seed to generate unique seeds for each chain.
+        n_chains: Number of chains to run.
+        n_temps: Number of temperatures in the ladder.
+        max_temp: Maximum temperature (1/beta_min).
+        n_gibbs_per_temp: Number of Gibbs steps per temperature.
+        placebo: Whether to use placebo on relabeling.
+        keep_last: Whether to keep the last temperature in the ladder.
+
+    Returns:
+        Tuple of (all_samples, all_runtimes, all_acceptance_rates) where:
+        - all_samples: List of sample arrays, one per chain
+        - all_runtimes: List of runtime values per chain
+        - all_acceptance_rates: List of acceptance rates per chain
+    """
+    n_processes = min(n_chains, cpu_count())
+
+    # Generate unique seeds for each chain
+    seeds = [base_seed + i * 1000 for i in range(n_chains)]
+
+    # Prepare arguments for each chain
+    chain_args = [
+        (
+            y,
+            K,
+            n_iter,
+            burn,
+            seed,
+            n_temps,
+            max_temp,
+            n_gibbs_per_temp,
+            placebo,
+            keep_last,
+        )
+        for seed in seeds
+    ]
+
+    print(f"Running {n_chains} chains in parallel using {n_processes} processes...")
+
+    # Run chains in parallel
+    with Pool(processes=n_processes) as pool:
+        results = pool.map(_run_single_chain, chain_args)
+
+    # Separate results
+    all_samples = [result[0] for result in results]
+    all_runtimes = [result[1] for result in results]
+    all_acceptance_rates = [result[2] for result in results]
+
+    return all_samples, all_runtimes, all_acceptance_rates
