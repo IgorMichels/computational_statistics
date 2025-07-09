@@ -162,7 +162,7 @@ if __name__ == "__main__":
     ap.add_argument("--chains", type=int, default=4, help="Number of chains")
     ap.add_argument("--seed", type=int, default=0, help="Random seed")
     ap.add_argument("--n_temps", type=int, default=10, help="Number of temperatures")
-    ap.add_argument("--max_temp", type=float, default=5.0, help="Maximum temperature")
+    ap.add_argument("--max_temp", type=float, default=10.0, help="Maximum temperature")
     ap.add_argument(
         "--n_gibbs_per_temp", type=int, default=1, help="Gibbs steps per temperature"
     )
