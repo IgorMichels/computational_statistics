@@ -26,7 +26,7 @@ if __name__ == "__main__":
     y = np.load(f"../data/{args.data}/data.npy")
 
     print(f"Running {args.chains} Gibbs chains…")
-    chains, times, acceptance_rates = run_parallel_chains(
+    chains, times, _ = run_parallel_chains(
         y,
         args.K,
         args.n_iter,

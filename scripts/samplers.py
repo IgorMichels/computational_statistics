@@ -1,7 +1,10 @@
 # pylint: disable=too-many-arguments
 # pylint: disable=unexpected-keyword-arg
 # pylint: disable=too-many-locals
+# pylint: disable=protected-access
 
+import atexit
+import multiprocessing
 import time
 from multiprocessing import Pool, cpu_count
 from typing import List, Tuple
@@ -9,6 +12,16 @@ from typing import List, Tuple
 import numpy as np
 from state import State
 from tqdm import tqdm
+
+
+def _cleanup_multiprocessing():
+    """Force cleanup of multiprocessing resources on exit."""
+
+    if hasattr(multiprocessing, "_cleanup"):
+        multiprocessing._cleanup()
+
+
+atexit.register(_cleanup_multiprocessing)
 
 
 def compute_log_likelihood(y: np.ndarray, state: State) -> float:
@@ -48,9 +61,13 @@ def create_temperature_ladder(
 ) -> np.ndarray:
     """Create a temperature ladder for tempered Gibbs sampling.
 
+    Creates a geometric sequence of temperatures from 1/max_temp to 1.0,
+    optionally including the reverse sequence for bidirectional tempering.
+
     Args:
         n_temps: Number of temperatures in the ladder.
         max_temp: Maximum temperature (1/beta_min).
+        keep_last: Whether to include the reverse sequence for bidirectional tempering.
 
     Returns:
         Array of temperatures from 0 to 1.
@@ -68,7 +85,7 @@ def sample_z(
     """Sample cluster assignments for each data point with tempering.
 
     Uses the current values of pi and mu to compute tempered posterior
-    probabilities and sample new cluster assignments.
+    probabilities and sample new cluster assignments using categorical sampling.
 
     Args:
         y: Observed data points.
@@ -101,12 +118,15 @@ def sample_pi(
 ) -> np.ndarray:
     """Sample mixture weights from tempered Dirichlet distribution.
 
+    Samples new mixing weights from the tempered posterior Dirichlet distribution
+    based on current cluster assignments and temperature parameter.
+
     Args:
         z: Current cluster assignments.
         K: Number of mixture components.
         rng: Random number generator.
-        beta: Temperature parameter.
-        alpha: Dirichlet concentration parameter.
+        beta: Temperature parameter for tempering the likelihood contribution.
+        alpha: Dirichlet concentration parameter (prior).
 
     Returns:
         New mixture weights sampled from tempered posterior Dirichlet.
@@ -120,20 +140,21 @@ def sample_mu(
     K: int,
     rng: np.random.Generator,
     m0: float = 0.0,
-    s0_2: float = 25.0,
+    s0_2: float = 4.0,
     beta: float = 1.0,
 ) -> np.ndarray:
     """Sample mean parameters from tempered normal distributions.
 
     For each component, samples from the tempered posterior normal distribution
-    given the assigned data points and prior parameters.
+    given the assigned data points and prior parameters. Uses conjugate normal-normal
+    updating with tempering applied to the likelihood precision.
 
     Args:
         y: Observed data points.
         z: Current cluster assignments.
         K: Number of mixture components.
         rng: Random number generator.
-        beta: Temperature parameter.
+        beta: Temperature parameter for tempering the likelihood contribution.
         m0: Prior mean for component means.
         s0_2: Prior variance for component means.
 
@@ -161,14 +182,15 @@ def gibbs_step(
 ) -> State:
     """Perform one step of the tempered Gibbs sampler.
 
-    Sequentially samples z, pi, and mu given the current state and temperature.
+    Sequentially samples z, pi, and mu given the current state and temperature
+    parameter. This implements one full cycle of the tempered Gibbs sampler.
 
     Args:
         y: Observed data points.
         state: Current state of the sampler.
         K: Number of mixture components.
         rng: Random number generator.
-        beta: Temperature parameter.
+        beta: Temperature parameter for tempering.
 
     Returns:
         New state after one tempered Gibbs sampling step.
@@ -186,11 +208,13 @@ def tempered_transition_step(
     rng: np.random.Generator,
     temperatures_ladder: np.ndarray,
     n_gibbs_per_temp: int = 10,
+    placebo: bool = False,
 ) -> Tuple[State, bool]:
     """Perform one tempered transition step with acceptance/rejection.
 
     Moves through the temperature ladder, performing Gibbs steps at each temperature,
-    then uses Metropolis criterion to accept or reject the proposal.
+    then uses Metropolis criterion to accept or reject the proposal. This implements
+    the core tempered transitions algorithm.
 
     Args:
         y: Observed data points.
@@ -199,6 +223,7 @@ def tempered_transition_step(
         rng: Random number generator.
         temperatures_ladder: Array of temperatures from 0 to 1.
         n_gibbs_per_temp: Number of Gibbs steps per temperature.
+        placebo: Whether to use placebo relabeling to avoid label switching.
 
     Returns:
         Tuple of (new_state, accepted) where accepted indicates if proposal was accepted.
@@ -208,7 +233,9 @@ def tempered_transition_step(
 
     for beta in temperatures_ladder:
         for _ in range(n_gibbs_per_temp):
-            current_state = gibbs_step(y, current_state, K, rng, beta=beta)
+            current_state = gibbs_step(y, current_state, K, rng, beta=beta).relabel(
+                placebo=placebo
+            )
 
     if temperatures_ladder.shape[0] == 1:
         return current_state, True
@@ -225,6 +252,9 @@ def tempered_transition_step(
 
 def _run_single_chain(args):
     """Helper function to run a single chain (for parallelization).
+
+    Unpacks arguments and calls run_chain. This function is designed to work
+    with multiprocessing.Pool.map() which requires a single argument function.
 
     Args:
         args: Tuple containing all arguments needed for run_chain.
@@ -273,6 +303,9 @@ def run_chain(
 ):
     """Run a single tempered transitions chain.
 
+    Executes a complete tempered transitions MCMC chain with specified parameters.
+    Includes burn-in period and tracks acceptance rates and runtime statistics.
+
     Args:
         y: Observed data points.
         K: Number of mixture components.
@@ -282,7 +315,7 @@ def run_chain(
         n_temps: Number of temperatures in the ladder.
         max_temp: Maximum temperature (1/beta_min).
         n_gibbs_per_temp: Number of Gibbs steps per temperature.
-        placebo: Whether to use placebo on relabeling.
+        placebo: Whether to use placebo relabeling to avoid label switching.
         keep_last: Whether to keep the last temperature in the ladder.
 
     Returns:
@@ -298,10 +331,9 @@ def run_chain(
     kept = []
     n_accepted = 0
     t0 = time.perf_counter()
-
     for it in tqdm(range(n_iter)):
         state, accepted = tempered_transition_step(
-            y, state, K, rng, temperatures_ladder, n_gibbs_per_temp
+            y, state, K, rng, temperatures_ladder, n_gibbs_per_temp, placebo
         )
 
         if accepted:
@@ -311,7 +343,11 @@ def run_chain(
             kept.append(state.relabel(placebo=placebo).mu.copy())
 
     acceptance_rate = n_accepted / n_iter
-    return np.vstack(kept), time.perf_counter() - t0, acceptance_rate
+    return (
+        np.vstack(kept),
+        time.perf_counter() - t0,
+        acceptance_rate,
+    )
 
 
 def run_parallel_chains(
@@ -329,6 +365,10 @@ def run_parallel_chains(
 ) -> Tuple[List[np.ndarray], List[float], List[float]]:
     """Run multiple chains in parallel using multiprocessing.
 
+    Executes multiple independent tempered transitions chains in parallel to
+    improve convergence diagnostics and computational efficiency. Uses all
+    available CPU cores up to the number of chains requested.
+
     Args:
         y: Observed data points.
         K: Number of mixture components.
@@ -339,7 +379,7 @@ def run_parallel_chains(
         n_temps: Number of temperatures in the ladder.
         max_temp: Maximum temperature (1/beta_min).
         n_gibbs_per_temp: Number of Gibbs steps per temperature.
-        placebo: Whether to use placebo on relabeling.
+        placebo: Whether to use placebo relabeling to avoid label switching.
         keep_last: Whether to keep the last temperature in the ladder.
 
     Returns:
@@ -372,11 +412,9 @@ def run_parallel_chains(
 
     print(f"Running {n_chains} chains in parallel using {n_processes} processes...")
 
-    # Run chains in parallel
     with Pool(processes=n_processes) as pool:
         results = pool.map(_run_single_chain, chain_args)
 
-    # Separate results
     all_samples = [result[0] for result in results]
     all_runtimes = [result[1] for result in results]
     all_acceptance_rates = [result[2] for result in results]
