@@ -6,110 +6,13 @@ import time
 import warnings
 
 import numpy as np
-from metrics import credible_interval, ess_1d, rhat_scalar
+from metrics import create_metrics
 from plots import create_diagnostic_plots
+from samplers import sample_mu, sample_pi, sample_z
 from state import State
 from tqdm import tqdm
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
-
-
-def sample_z_tempered(
-    y: np.ndarray, state: State, rng: np.random.Generator, beta: float = 1.0
-) -> np.ndarray:
-    """Sample cluster assignments for each data point with tempering.
-
-    Uses the current values of pi and mu to compute tempered posterior
-    probabilities and sample new cluster assignments.
-
-    Args:
-        y: Observed data points.
-        state: Current state containing pi and mu values.
-        rng: Random number generator.
-        beta: Temperature parameter (0 = prior only, 1 = full posterior).
-
-    Returns:
-        New cluster assignments for each data point.
-    """
-    K = len(state.pi)
-    logw = np.empty((len(y), K))
-    for k in range(K):
-        log_prior = np.log(state.pi[k])
-        log_like = -0.5 * (y - state.mu[k]) ** 2 - 0.5 * np.log(2 * np.pi)
-        # Tempered likelihood: (likelihood^beta) * (prior^(1-beta))
-        logw[:, k] = (1 - beta) * log_prior + beta * log_like
-    logw -= logw.max(axis=1, keepdims=True)  # pylint: disable=unexpected-keyword-arg
-    probs = np.exp(logw)
-    probs /= probs.sum(axis=1, keepdims=True)
-    u = rng.random((len(y), 1))
-    return (np.cumsum(probs, axis=1) > u).argmax(axis=1)
-
-
-def sample_pi_tempered(
-    z: np.ndarray,
-    K: int,
-    rng: np.random.Generator,
-    beta: float = 1.0,
-    alpha: float = 1.0,
-) -> np.ndarray:
-    """Sample mixture weights from tempered Dirichlet distribution.
-
-    Args:
-        z: Current cluster assignments.
-        K: Number of mixture components.
-        rng: Random number generator.
-        beta: Temperature parameter.
-        alpha: Dirichlet concentration parameter.
-
-    Returns:
-        New mixture weights sampled from tempered posterior Dirichlet.
-    """
-    # Tempered Dirichlet: Dir(alpha + beta * counts)
-    counts = np.bincount(z, minlength=K)
-    tempered_alpha = alpha + beta * counts
-    return rng.dirichlet(tempered_alpha)
-
-
-def sample_mu_tempered(
-    y: np.ndarray,
-    z: np.ndarray,
-    K: int,
-    rng: np.random.Generator,
-    beta: float = 1.0,
-    m0: float = 0.0,
-    s0_2: float = 25.0,
-) -> np.ndarray:
-    """Sample mean parameters from tempered normal distributions.
-
-    For each component, samples from the tempered posterior normal distribution
-    given the assigned data points and prior parameters.
-
-    Args:
-        y: Observed data points.
-        z: Current cluster assignments.
-        K: Number of mixture components.
-        rng: Random number generator.
-        beta: Temperature parameter.
-        m0: Prior mean for component means.
-        s0_2: Prior variance for component means.
-
-    Returns:
-        New mean parameters for each component.
-    """
-    mu = np.empty(K)
-    for k in range(K):
-        idx = z == k
-        n_k = idx.sum()
-        if n_k == 0:
-            mu[k] = rng.normal(m0, np.sqrt(s0_2))
-        else:
-            ybar = y[idx].mean()
-            # Tempered precision: 1/s0_2 + beta * n_k
-            post_prec = 1.0 / s0_2 + beta * n_k
-            post_var = 1.0 / post_prec
-            post_mean = post_var * (m0 / s0_2 + beta * n_k * ybar)
-            mu[k] = rng.normal(post_mean, np.sqrt(post_var))
-    return mu
 
 
 def tempered_gibbs_step(
@@ -129,9 +32,9 @@ def tempered_gibbs_step(
     Returns:
         New state after one tempered Gibbs sampling step.
     """
-    z = sample_z_tempered(y, state, rng, beta)
-    pi = sample_pi_tempered(z, K, rng, beta)
-    mu = sample_mu_tempered(y, z, K, rng, beta)
+    z = sample_z(y, state, rng, beta=beta)
+    pi = sample_pi(z, K, rng, beta=beta)
+    mu = sample_mu(y, z, K, rng, beta=beta)
     return State(z, pi, mu)
 
 
@@ -285,14 +188,7 @@ if __name__ == "__main__":
         times.append(rt)
 
     create_diagnostic_plots("tempered_transitions", chains, args.K, args.chains)
-
-    pooled = np.vstack(chains)
-    mu_mean = pooled.mean(axis=0)
-    rhat = [rhat_scalar([c[:, k] for c in chains]) for k in range(args.K)]
-    ess = [ess_1d(pooled[:, k]) for k in range(args.K)]
-
-    ci_lower = np.array([credible_interval(pooled[:, k])[0] for k in range(args.K)])
-    ci_upper = np.array([credible_interval(pooled[:, k])[1] for k in range(args.K)])
+    mu_mean, rhat, ess, ci_lower, ci_upper = create_metrics(chains, args.K)
 
     print("\n=== TEMPERED TRANSITIONS SUMMARY ===")
     print("Posterior mean μ   :", np.round(mu_mean, 4))

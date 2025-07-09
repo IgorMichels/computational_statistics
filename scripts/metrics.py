@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 
@@ -71,3 +71,34 @@ def credible_interval(samples: np.ndarray, alpha: float = 0.05):
     lower = np.percentile(samples, 100 * alpha / 2)
     upper = np.percentile(samples, 100 * (1 - alpha / 2))
     return lower, upper
+
+
+def create_metrics(
+    chains: List[np.ndarray], K: int
+) -> Tuple[np.ndarray, List[float], List[float], np.ndarray, np.ndarray]:
+    """Create comprehensive metrics from MCMC chains.
+
+    Computes posterior mean, R-hat convergence diagnostic, effective sample size,
+    and credible intervals for each parameter from multiple MCMC chains.
+
+    Args:
+        chains: List of MCMC chains, each containing samples for K parameters.
+        K: Number of parameters (mixture components).
+
+    Returns:
+        Tuple containing:
+        - mu_mean: Posterior mean for each parameter
+        - rhat: R-hat convergence diagnostic for each parameter
+        - ess: Effective sample size for each parameter
+        - ci_lower: Lower bounds of 95% credible intervals
+        - ci_upper: Upper bounds of 95% credible intervals
+    """
+    pooled = np.vstack(chains)
+    mu_mean = pooled.mean(axis=0)
+    rhat = [rhat_scalar([c[:, k] for c in chains]) for k in range(K)]
+    ess = [ess_1d(pooled[:, k]) for k in range(K)]
+
+    ci_lower = np.array([credible_interval(pooled[:, k])[0] for k in range(K)])
+    ci_upper = np.array([credible_interval(pooled[:, k])[1] for k in range(K)])
+
+    return mu_mean, rhat, ess, ci_lower, ci_upper
