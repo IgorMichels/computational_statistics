@@ -16,18 +16,22 @@ help:
 
 local:
 	@echo "🚀 Setting up local virtual environment..."
-	@if [ ! -d ".venv" ]; then \
+	@start_time=$$(date +%s); \
+	if [ ! -d ".venv" ]; then \
 		echo "📦 Creating virtual environment..."; \
 		python3 -m venv .venv; \
-	fi
-	@echo "🔧 Upgrading pip..."
-	@.venv/bin/pip install --upgrade pip
-	@echo "📦 Installing dependencies..."
-	@.venv/bin/pip install -e ".[dev]"
-	@echo "🪝 Setting up pre-commit hooks..."
-	@.venv/bin/pre-commit install
-	@echo "✅ Virtual environment configured!"
-	@echo "🎯 To use: source .venv/bin/activate"
+	fi; \
+	echo "🔧 Upgrading pip..."; \
+	.venv/bin/pip install --upgrade pip; \
+	echo "📦 Installing dependencies..."; \
+	.venv/bin/pip install -e ".[dev]"; \
+	echo "🪝 Setting up pre-commit hooks..."; \
+	.venv/bin/pre-commit install; \
+	end_time=$$(date +%s); \
+	elapsed=$$((end_time - start_time)); \
+	echo "✅ Virtual environment configured!"; \
+	echo "⏱️  Time elapsed: $$elapsed seconds"; \
+	echo "🎯 To use: source .venv/bin/activate"
 
 check:
 	@echo "🔍 Checking code quality..."
@@ -51,4 +55,5 @@ clean:
 	@find . -type d -name ".ruff_cache" -delete
 	@find . -type d -name ".mypy_cache" -delete
 	@rm -rf build/ dist/ *.egg-info/
+	@rm -rf .venv/
 	@echo "✅ Cleanup completed!"
