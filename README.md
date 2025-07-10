@@ -1,6 +1,6 @@
 # Computational Statistics - FGV/EMAp
 
-Final project for the Computational Statistics class of the FGV/EMAp PhD program.
+Final project for the Computational Statistics class of the FGV/EMAp PhD program, taught by [Prof. Luiz Max Carvalho](https://emap.fgv.br/en/professors/luiz-max-fagundes-de-carvalho).
 
 ## Overview
 
