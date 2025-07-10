@@ -65,7 +65,7 @@ def create_trace_plots(
     fig_trace_all = sp.make_subplots(
         rows=n_rows,
         cols=n_cols,
-        subplot_titles=[f"Chain {c+1}" for c in range(n_chains)],
+        subplot_titles=[f"Chain {c + 1}" for c in range(n_chains)],
     )
 
     for c, (row, col) in enumerate(positions):
@@ -75,7 +75,7 @@ def create_trace_plots(
                     y=chains[c][:, k],
                     mode="lines",
                     line={"width": 0.8, "color": param_colors[k]},
-                    name=f"$\\mu_{{{k+1}}}$",
+                    name=f"$\\mu_{{{k + 1}}}$",
                     showlegend=(c == 0),
                 ),
                 row=row,
@@ -117,7 +117,7 @@ def create_acf_plots(
     fig_acf_all = sp.make_subplots(
         rows=n_rows,
         cols=n_cols,
-        subplot_titles=[f"Chain {c+1}" for c in range(n_chains)],
+        subplot_titles=[f"Chain {c + 1}" for c in range(n_chains)],
     )
 
     for c, (row, col) in enumerate(positions):
@@ -130,7 +130,7 @@ def create_acf_plots(
                     mode="markers+lines",
                     line={"color": param_colors[k]},
                     marker={"color": param_colors[k]},
-                    name=f"$\\mu_{{{k+1}}}$",
+                    name=f"$\\mu_{{{k + 1}}}$",
                     showlegend=(c == 0),
                 ),
                 row=row,
@@ -172,7 +172,7 @@ def create_histogram_plots(
     fig_hist_all = sp.make_subplots(
         rows=n_rows,
         cols=n_cols,
-        subplot_titles=[f"Chain {c+1}" for c in range(n_chains)],
+        subplot_titles=[f"Chain {c + 1}" for c in range(n_chains)],
     )
 
     for c, (row, col) in enumerate(positions):
@@ -183,7 +183,7 @@ def create_histogram_plots(
                     nbinsx=30,
                     opacity=0.6,
                     marker={"color": param_colors[k]},
-                    name=f"$\\mu_{{{k+1}}}$",
+                    name=f"$\\mu_{{{k + 1}}}$",
                     showlegend=(c == 0),
                 ),
                 row=row,

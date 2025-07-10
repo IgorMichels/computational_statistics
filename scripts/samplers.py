@@ -56,9 +56,7 @@ def compute_log_likelihood(y: np.ndarray, state: State) -> float:
     return log_like
 
 
-def create_temperature_ladder(
-    n_temps: int, max_temp: float, keep_last: bool = False
-) -> np.ndarray:
+def create_temperature_ladder(n_temps: int, max_temp: float) -> np.ndarray:
     """Create a temperature ladder for tempered Gibbs sampling.
 
     Creates a geometric sequence of temperatures from 1/max_temp to 1.0,
@@ -67,16 +65,12 @@ def create_temperature_ladder(
     Args:
         n_temps: Number of temperatures in the ladder.
         max_temp: Maximum temperature (1/beta_min).
-        keep_last: Whether to include the reverse sequence for bidirectional tempering.
 
     Returns:
         Array of temperatures from 0 to 1.
     """
     temps = np.geomspace(1.0 / max_temp, 1.0, n_temps)
-    if keep_last:
-        return np.hstack([temps[::-1], temps])
-
-    return np.hstack([temps[-2::-1], temps])
+    return np.hstack([temps[:0:-1], temps])
 
 
 def sample_z(
@@ -272,7 +266,6 @@ def _run_single_chain(args):
         max_temp,
         n_gibbs_per_temp,
         placebo,
-        keep_last,
     ) = args
 
     return run_chain(
@@ -285,7 +278,6 @@ def _run_single_chain(args):
         max_temp,
         n_gibbs_per_temp,
         placebo,
-        keep_last,
     )
 
 
@@ -299,7 +291,6 @@ def run_chain(
     max_temp: float = 5.0,
     n_gibbs_per_temp: int = 5,
     placebo: bool = False,
-    keep_last: bool = False,
 ):
     """Run a single tempered transitions chain.
 
@@ -316,7 +307,6 @@ def run_chain(
         max_temp: Maximum temperature (1/beta_min).
         n_gibbs_per_temp: Number of Gibbs steps per temperature.
         placebo: Whether to use placebo relabeling to avoid label switching.
-        keep_last: Whether to keep the last temperature in the ladder.
 
     Returns:
         Tuple of (samples, runtime, acceptance_rate) where samples contains the
@@ -325,7 +315,7 @@ def run_chain(
     """
     rng = np.random.default_rng(seed)
 
-    temperatures_ladder = create_temperature_ladder(n_temps, max_temp, keep_last)
+    temperatures_ladder = create_temperature_ladder(n_temps, max_temp)
     state = State(rng.integers(0, K, len(y)), np.ones(K) / K, rng.normal(0, 1, K))
 
     kept = []
@@ -361,7 +351,6 @@ def run_parallel_chains(
     max_temp: float = 5.0,
     n_gibbs_per_temp: int = 5,
     placebo: bool = False,
-    keep_last: bool = False,
 ) -> Tuple[List[np.ndarray], List[float], List[float]]:
     """Run multiple chains in parallel using multiprocessing.
 
@@ -380,7 +369,6 @@ def run_parallel_chains(
         max_temp: Maximum temperature (1/beta_min).
         n_gibbs_per_temp: Number of Gibbs steps per temperature.
         placebo: Whether to use placebo relabeling to avoid label switching.
-        keep_last: Whether to keep the last temperature in the ladder.
 
     Returns:
         Tuple of (all_samples, all_runtimes, all_acceptance_rates) where:
@@ -405,7 +393,6 @@ def run_parallel_chains(
             max_temp,
             n_gibbs_per_temp,
             placebo,
-            keep_last,
         )
         for seed in seeds
     ]

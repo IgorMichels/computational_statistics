@@ -48,7 +48,6 @@ def run_comparison(args, show_summary=True):
         n_temps=args.n_temps,
         max_temp=args.max_temp,
         n_gibbs_per_temp=args.n_gibbs_per_temp,
-        keep_last=True,
     )
     tempered_time = time.time() - start_time
 
@@ -101,7 +100,6 @@ def run_comparison(args, show_summary=True):
                 "n_temps": args.n_temps,
                 "max_temp": args.max_temp,
                 "n_gibbs_per_temp": args.n_gibbs_per_temp,
-                "keep_last": True,
             },
         },
     }
@@ -180,7 +178,7 @@ def create_trace_plots(gibbs_samples, tempered_samples, K):
     fig = sp.make_subplots(
         rows=1,
         cols=K,
-        subplot_titles=[f"$\\mu_{{{k+1}}}$" for k in range(K)],
+        subplot_titles=[f"$\\mu_{{{k + 1}}}$" for k in range(K)],
         horizontal_spacing=0.05,
     )
 
@@ -232,7 +230,7 @@ def create_acf_plots(gibbs_samples, tempered_samples, K, max_lag=40):
     fig = sp.make_subplots(
         rows=1,
         cols=K,
-        subplot_titles=[f"$\\mu_{{{k+1}}}$" for k in range(K)],
+        subplot_titles=[f"$\\mu_{{{k + 1}}}$" for k in range(K)],
         horizontal_spacing=0.05,
     )
 
@@ -288,7 +286,7 @@ def create_histogram_plots(gibbs_samples, tempered_samples, gibbs_ci, tempered_c
     fig = sp.make_subplots(
         rows=1,
         cols=K,
-        subplot_titles=[f"$\\mu_{{{k+1}}}$" for k in range(K)],
+        subplot_titles=[f"$\\mu_{{{k + 1}}}$" for k in range(K)],
         horizontal_spacing=0.05,
     )
 
@@ -362,7 +360,7 @@ def create_complete_plot(gibbs_samples, tempered_samples, gibbs_ci, tempered_ci,
     fig = sp.make_subplots(
         rows=3,
         cols=K,
-        subplot_titles=[f"$\\mu_{{{k+1}}}$" for k in range(K)] + [""] * (2 * K),
+        subplot_titles=[f"$\\mu_{{{k + 1}}}$" for k in range(K)] + [""] * (2 * K),
         specs=[
             [{"secondary_y": False} for _ in range(K)],
             [{"secondary_y": False} for _ in range(K)],
