@@ -6,12 +6,17 @@
 import atexit
 import multiprocessing
 import time
-from multiprocessing import Pool, cpu_count
+from multiprocessing import cpu_count
 from typing import List, Tuple
 
+import joblib
 import numpy as np
+from joblib import Parallel, delayed
 from state import State
 from tqdm import tqdm
+
+# constants
+LOG_2PI = 0.5 * np.log(2 * np.pi)
 
 
 def _cleanup_multiprocessing():
@@ -39,16 +44,12 @@ def compute_log_likelihood(y: np.ndarray, state: State) -> float:
         Log-likelihood value for the entire dataset.
     """
     log_pi = np.log(state.pi)
-    log_2pi = 0.5 * np.log(2 * np.pi)
     diff = y[:, np.newaxis] - state.mu[np.newaxis, :]
-    log_weights = log_pi[np.newaxis, :] - 0.5 * diff**2 - log_2pi
-    max_log_weights = log_weights.max(axis=1, keepdims=True)
-    log_like = np.sum(
-        max_log_weights.flatten()
-        + np.log(np.exp(log_weights - max_log_weights).sum(axis=1))
+    log_weights = log_pi[np.newaxis, :] - 0.5 * diff**2 - LOG_2PI
+    max_logw = np.max(log_weights, axis=1)
+    return np.sum(
+        max_logw + np.log(np.sum(np.exp(log_weights - max_logw[:, np.newaxis]), axis=1))
     )
-
-    return log_like
 
 
 def create_temperature_ladder(n_temps: int, max_temp: float) -> np.ndarray:
@@ -87,7 +88,7 @@ def sample_z(
     """
     log_prior = np.log(state.pi)
     diff = y[:, np.newaxis] - state.mu[np.newaxis, :]
-    log_like = -0.5 * diff**2 - 0.5 * np.log(2 * np.pi)
+    log_like = -0.5 * diff**2 - LOG_2PI
     logw = log_prior[np.newaxis, :] + beta * log_like
     logw -= logw.max(axis=1, keepdims=True)
     probs = np.exp(logw)
@@ -370,31 +371,21 @@ def run_parallel_chains(
         - all_runtimes: List of runtime values per chain
         - all_acceptance_rates: List of acceptance rates per chain
     """
-    n_processes = min(n_chains, cpu_count())
-
-    # Generate unique seeds for each chain
+    joblib.parallel.DEFAULT_N_JOBS = min(n_chains, cpu_count())
     seeds = [base_seed + i * 1000 for i in range(n_chains)]
-
-    # Prepare arguments for each chain
-    chain_args = [
-        (
-            y,
-            K,
-            n_iter,
-            burn,
-            seed,
-            n_temps,
-            max_temp,
-            n_gibbs_per_temp,
-            placebo,
+    print(f"Running {n_chains} chains with joblib (backend: loky)...")
+    results = Parallel(
+        n_jobs=min(n_chains, cpu_count()),
+        backend="loky",
+        verbose=0,
+        batch_size=1,
+        pre_dispatch="2*n_jobs",
+    )(
+        delayed(_run_single_chain)(
+            (y, K, n_iter, burn, seed, n_temps, max_temp, n_gibbs_per_temp, placebo)
         )
         for seed in seeds
-    ]
-
-    print(f"Running {n_chains} chains in parallel using {n_processes} processes...")
-
-    with Pool(processes=n_processes) as pool:
-        results = pool.map(_run_single_chain, chain_args)
+    )
 
     all_samples = [result[0] for result in results]
     all_runtimes = [result[1] for result in results]
