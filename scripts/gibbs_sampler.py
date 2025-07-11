@@ -1,7 +1,6 @@
 # pylint: disable=duplicate-code
 
 import argparse
-import os
 import warnings
 
 import numpy as np
@@ -50,4 +49,4 @@ if __name__ == "__main__":
     print("ESS  (μ)          :", np.round(ess, 1))
     print(f"Mean runtime / chain: {np.mean(times):.2f}s")
 
-    print("\nPNG diagnostics saved in", os.getcwd())
+    print(f"\nDiagnostic PNGs saved in ../figures/{args.data}")

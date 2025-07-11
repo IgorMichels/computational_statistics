@@ -1,7 +1,6 @@
 # pylint: disable=duplicate-code
 
 import argparse
-import os
 import warnings
 
 import numpy as np
@@ -62,4 +61,4 @@ if __name__ == "__main__":
     print(f"Parameters: {args.n_temps} temperatures, max_temp={args.max_temp}")
     print(f"            {args.n_gibbs_per_temp} Gibbs steps per temperature")
 
-    print("\nDiagnostic PNGs saved in", os.getcwd())
+    print(f"\nDiagnostic PNGs saved in ../figures/{args.data}")
