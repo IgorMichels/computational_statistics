@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import plotly.graph_objects as go
 import plotly.subplots as sp
-from metrics import acf_1d, credible_interval, ess_1d
+from metrics import acf_1d, compute_credible_intervals, ess_1d
 from samplers import run_chain
 
 
@@ -53,9 +53,11 @@ def run_comparison(args, show_summary=True):
 
     # Calculate metrics
     print("Computing metrics...")
-    gibbs_ci = np.array([credible_interval(gibbs_samples[:, k]) for k in range(args.K)])
+    gibbs_ci = np.array(
+        [compute_credible_intervals(gibbs_samples[:, k]) for k in range(args.K)]
+    )
     tempered_ci = np.array(
-        [credible_interval(tempered_samples[:, k]) for k in range(args.K)]
+        [compute_credible_intervals(tempered_samples[:, k]) for k in range(args.K)]
     )
 
     gibbs_ess = np.array([ess_1d(gibbs_samples[:, k]) for k in range(args.K)])
