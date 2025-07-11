@@ -38,20 +38,15 @@ def compute_log_likelihood(y: np.ndarray, state: State) -> float:
     Returns:
         Log-likelihood value for the entire dataset.
     """
-    K = len(state.pi)
-    log_like = 0.0
-
-    for yi in y:
-        log_weights = np.empty(K)
-        for k in range(K):
-            log_weights[k] = (
-                np.log(state.pi[k])
-                - 0.5 * (yi - state.mu[k]) ** 2
-                - 0.5 * np.log(2 * np.pi)
-            )
-
-        max_log_weight = log_weights.max()
-        log_like += max_log_weight + np.log(np.exp(log_weights - max_log_weight).sum())
+    log_pi = np.log(state.pi)
+    log_2pi = 0.5 * np.log(2 * np.pi)
+    diff = y[:, np.newaxis] - state.mu[np.newaxis, :]
+    log_weights = log_pi[np.newaxis, :] - 0.5 * diff**2 - log_2pi
+    max_log_weights = log_weights.max(axis=1, keepdims=True)
+    log_like = np.sum(
+        max_log_weights.flatten()
+        + np.log(np.exp(log_weights - max_log_weights).sum(axis=1))
+    )
 
     return log_like
 
@@ -90,12 +85,10 @@ def sample_z(
     Returns:
         New cluster assignments for each data point.
     """
-    K = len(state.pi)
-    logw = np.empty((len(y), K))
-    for k in range(K):
-        log_prior = np.log(state.pi[k])
-        log_like = -0.5 * (y - state.mu[k]) ** 2 - 0.5 * np.log(2 * np.pi)
-        logw[:, k] = log_prior + beta * log_like
+    log_prior = np.log(state.pi)
+    diff = y[:, np.newaxis] - state.mu[np.newaxis, :]
+    log_like = -0.5 * diff**2 - 0.5 * np.log(2 * np.pi)
+    logw = log_prior[np.newaxis, :] + beta * log_like
     logw -= logw.max(axis=1, keepdims=True)
     probs = np.exp(logw)
     probs /= probs.sum(axis=1, keepdims=True)
@@ -156,17 +149,18 @@ def sample_mu(
         New mean parameters for each component.
     """
     mu = np.empty(K)
+    prior_prec = 1.0 / s0_2
+    prior_term = m0 * prior_prec
     for k in range(K):
         idx = z == k
         n_k = idx.sum()
         if n_k == 0:
             mu[k] = rng.normal(m0, np.sqrt(s0_2))
         else:
-            ybar = y[idx].mean()
-            # Tempered precision: 1/s0_2 + beta * n_k
-            post_prec = 1.0 / s0_2 + beta * n_k
+            y_sum = y[idx].sum()
+            post_prec = prior_prec + beta * n_k
             post_var = 1.0 / post_prec
-            post_mean = post_var * (beta * n_k * ybar + m0 / s0_2)
+            post_mean = post_var * (beta * y_sum + prior_term)
             mu[k] = rng.normal(post_mean, np.sqrt(post_var))
     return mu
 
