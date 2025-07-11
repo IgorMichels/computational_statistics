@@ -2,10 +2,13 @@ import json
 from typing import List, Tuple
 
 import numpy as np
+from numba import jit
 
 
 def acf_1d(x: np.ndarray, max_lag: int = 40):
     """Compute autocorrelation function for a 1D time series.
+
+    Uses FFT to compute the autocorrelation function efficiently.
 
     Args:
         x: Input time series.
@@ -16,7 +19,13 @@ def acf_1d(x: np.ndarray, max_lag: int = 40):
     """
     n = len(x)
     x = x - x.mean()
-    ac = np.correlate(x, x, mode="full")[n - 1 : n + max_lag] / n
+    n_fft = 2 ** int(np.ceil(np.log2(2 * n - 1)))
+    x_padded = np.zeros(n_fft)
+    x_padded[:n] = x
+
+    X = np.fft.fft(x_padded)
+    ac = np.fft.ifft(X * np.conj(X)).real[: max_lag + 1]
+
     return ac / ac[0]
 
 
@@ -38,11 +47,47 @@ def ess_1d(x: np.ndarray, max_lag: int = 40):
     return len(x) / (1 + 2 * pos.sum())
 
 
+@jit(nopython=True)
+def rhat_scalar_numba(chains_array: np.ndarray):
+    """Compute R-hat convergence diagnostic using Numba optimization.
+
+    Numba-optimized implementation of the potential scale reduction factor
+    calculation for improved performance.
+
+    Args:
+        chains_array: 2D array where each row is a chain.
+
+    Returns:
+        R-hat value.
+    """
+    m, n = chains_array.shape
+    chain_means = np.zeros(m)
+    for i in range(m):
+        chain_means[i] = np.mean(chains_array[i])
+
+    W = 0.0
+    for i in range(m):
+        chain_var = 0.0
+        for j in range(n):
+            chain_var += (chains_array[i, j] - chain_means[i]) ** 2
+        W += chain_var / (n - 1)
+    W /= m
+
+    overall_mean = np.mean(chain_means)
+    B = 0.0
+    for i in range(m):
+        B += (chain_means[i] - overall_mean) ** 2
+    B = n * B / (m - 1)
+
+    var_hat = (n - 1) / n * W + B / n
+    return np.sqrt(var_hat / W)
+
+
 def rhat_scalar(chains: List[np.ndarray]):
     """Compute R-hat convergence diagnostic for multiple chains.
 
     Computes the potential scale reduction factor (R-hat) to assess
-    convergence of MCMC chains.
+    convergence of MCMC chains. Values close to 1 indicate good convergence.
 
     Args:
         chains: List of chains for the same parameter.
@@ -51,33 +96,35 @@ def rhat_scalar(chains: List[np.ndarray]):
         R-hat value (should be close to 1 for convergence).
     """
     n = min(len(c) for c in chains)
-    chains = [c[:n] for c in chains]
-    means = np.array([c.mean() for c in chains])
-    W = np.array([c.var(ddof=1) for c in chains]).mean()
-    B = n * means.var(ddof=1)
-    var_hat = (n - 1) / n * W + B / n
-    return np.sqrt(var_hat / W)
+    chains_array = np.array([c[:n] for c in chains])
+
+    return rhat_scalar_numba(chains_array)
 
 
-def credible_interval(samples: np.ndarray, alpha: float = 0.05):
-    """Compute credible interval from posterior samples.
+def compute_credible_intervals(pooled: np.ndarray, alpha: float = 0.05):
+    """Compute credible intervals from posterior samples.
+
+    Calculates equal-tailed credible intervals from pooled posterior samples.
 
     Args:
-        samples: Posterior samples.
+        pooled: Pooled posterior samples.
         alpha: Significance level (default 0.05 for 95% CI).
 
     Returns:
         Tuple of (lower, upper) bounds of the credible interval.
     """
-    lower = np.percentile(samples, 100 * alpha / 2)
-    upper = np.percentile(samples, 100 * (1 - alpha / 2))
-    return lower, upper
+    lower_percentile = 100 * alpha / 2
+    upper_percentile = 100 * (1 - alpha / 2)
+
+    percentiles = np.percentile(pooled, [lower_percentile, upper_percentile], axis=0)
+
+    return percentiles[0], percentiles[1]
 
 
 def create_metrics(
     chains: List[np.ndarray], K: int, data_name: str
 ) -> Tuple[np.ndarray, List[float], List[float], np.ndarray, np.ndarray]:
-    """Create comprehensive metrics from MCMC chains.
+    """Create comprehensive convergence and posterior metrics from MCMC chains.
 
     Computes posterior mean, R-hat convergence diagnostic, effective sample size,
     and credible intervals for each parameter from multiple MCMC chains. The
@@ -98,11 +145,11 @@ def create_metrics(
     """
     pooled = np.vstack(chains)
     mu_mean = pooled.mean(axis=0)
+
+    ci_lower, ci_upper = compute_credible_intervals(pooled)
+
     rhat = [rhat_scalar([c[:, k] for c in chains]) for k in range(K)]
     ess = [ess_1d(pooled[:, k]) for k in range(K)]
-
-    ci_lower = np.array([credible_interval(pooled[:, k])[0] for k in range(K)])
-    ci_upper = np.array([credible_interval(pooled[:, k])[1] for k in range(K)])
 
     with open(f"../data/{data_name}/metrics.json", "w", encoding="utf-8") as f:
         json.dump(
