@@ -3,8 +3,8 @@
 import subprocess
 import sys
 
-DEFAULT_N_ITER = 10000
-DEFAULT_BURN = 2000
+DEFAULT_N_ITER = 100_000
+DEFAULT_BURN = 20_000
 DEFAULT_SEED = 0
 
 DEFAULT_CHAINS = 4
@@ -19,6 +19,13 @@ DEFAULT_BETA0 = "1.0"
 DEFAULT_N_TEMPS = 10
 DEFAULT_MAX_TEMP = 10.0
 DEFAULT_N_GIBBS_PER_TEMP = 1
+
+datasets = [
+    {"name": "example_1", "K": 2},
+    {"name": "example_2", "K": 4},
+    {"name": "example_3", "K": 4},
+    {"name": "example_4", "K": 5},
+]
 
 
 def generate_commands(dataset):
@@ -87,13 +94,6 @@ def generate_commands(dataset):
 
     return datasets_commands
 
-
-datasets = [
-    {"name": "example_1", "K": 2},
-    {"name": "example_2", "K": 4},
-    {"name": "example_3", "K": 4},
-    {"name": "example_4", "K": 5},
-]
 
 if __name__ == "__main__":
     commands = [
