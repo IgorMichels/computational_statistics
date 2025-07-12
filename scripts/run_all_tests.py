@@ -2,6 +2,8 @@
 
 import subprocess
 import sys
+import time
+from concurrent.futures import ProcessPoolExecutor
 
 DEFAULT_N_ITER = 100_000
 DEFAULT_BURN = 20_000
@@ -26,6 +28,30 @@ datasets = [
     {"name": "example_3", "K": 4},
     {"name": "example_4", "K": 5},
 ]
+
+
+def run_command(cmd):
+    """
+    Execute a shell command and display its execution status and duration.
+
+    This function runs a shell command using subprocess, measures its execution time,
+    and prints a formatted status message indicating success or failure along with
+    the duration and command executed.
+
+    Args:
+        cmd (str): The shell command to execute
+
+    Returns:
+        bool: True if the command executed successfully (return code 0), False otherwise
+    """
+    start_time = time.time()
+    result = subprocess.run(cmd, shell=True, check=False)
+    duration = time.time() - start_time
+
+    status = "✅" if result.returncode == 0 else "❌"
+    print(f"{status} [{duration:6.2f}s] {cmd}")
+
+    return result.returncode == 0
 
 
 def generate_commands(dataset):
@@ -80,35 +106,32 @@ def generate_commands(dataset):
         f"--n_gibbs_per_temp {n_gibbs_per_temp}"
     )
 
-    datasets_commands = []
-    datasets_commands.append(
-        f"python gibbs_sampler.py {dataset_args} {base_args} --chains {chains}"
-    )
-    datasets_commands.append(
+    return [
+        f"python gibbs_sampler.py {dataset_args} {base_args} --chains {chains}",
         f"python tempered_transitions.py {dataset_args} {base_args} "
-        f"{tempered_args} --chains {chains}"
-    )
-    datasets_commands.append(
-        f"python comparison_tool.py all {dataset_args} {base_args} {tempered_args}"
-    )
-
-    return datasets_commands
+        f"{tempered_args} --chains {chains}",
+        f"python comparison_tool.py all {dataset_args} {base_args} {tempered_args}",
+    ]
 
 
 if __name__ == "__main__":
-    commands = [
-        "python generate_data.py",
-    ]
+    start_time = time.time()
 
+    if not run_command("python generate_data.py"):
+        print("❌ Data generation failed")
+        sys.exit(1)
+
+    all_commands = []
     for dataset in datasets:
-        datasets_commands = generate_commands(dataset)
-        commands.extend(datasets_commands)
+        all_commands.extend(generate_commands(dataset))
 
-    for i, cmd in enumerate(commands, 1):
-        print(f"[{i}/{len(commands)}] {cmd}")
-        result = subprocess.run(cmd, shell=True, check=False)
-        if result.returncode != 0:
-            print(f"Error in command: {cmd}")
-            sys.exit(1)
+    with ProcessPoolExecutor(max_workers=4) as executor:
+        results = list(executor.map(run_command, all_commands))
 
-    print("All tests executed successfully!")
+    failed_count = sum(1 for success in results if not success)
+    total_time = time.time() - start_time
+
+    print("\n📊 Summary:")
+    print(f"⏱️  Total time: {total_time:.2f}s ({total_time/60:.1f}min)")
+    print(f"✅ Successes: {len(results) - failed_count}/{len(results)}")
+    print(f"❌ Failures: {failed_count}/{len(results)}")
