@@ -33,7 +33,8 @@ if __name__ == "__main__":
 
     y = np.load(f"../data/{args.data}/data.npy")
 
-    print(f"Running {args.chains} Gibbs chains…")
+    if args.verbose:
+        print(f"Running {args.chains} Gibbs chains…")
     chains_mu, chains_sigma2, times, _ = run_parallel_chains(
         y,
         args.K,

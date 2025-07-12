@@ -1,8 +1,11 @@
 import json
+import warnings
 from typing import List, Tuple
 
 import numpy as np
 from numba import jit
+
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 def acf_1d(x: np.ndarray, max_lag: int = 40):

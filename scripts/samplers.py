@@ -418,6 +418,7 @@ def run_chain(
     max_temp: float = 5.0,
     n_gibbs_per_temp: int = 5,
     placebo: bool = False,
+    verbose: bool = False,
 ):
     """Run a single tempered transitions chain.
 
@@ -438,7 +439,7 @@ def run_chain(
         max_temp: Maximum temperature (1/beta_min).
         n_gibbs_per_temp: Number of Gibbs steps per temperature.
         placebo: Whether to use placebo relabeling to avoid label switching.
-
+        verbose: Whether to print verbose output.
     Returns:
         Tuple of (samples_mu, samples_sigma2, runtime, acceptance_rate) where
         samples_mu and samples_sigma2 contain the post-burn-in samples for means
@@ -462,7 +463,8 @@ def run_chain(
     n_accepted = 0
     t0 = time.perf_counter()
 
-    for it in tqdm(range(n_iter)):
+    iterations = tqdm(range(n_iter)) if verbose else range(n_iter)
+    for it in iterations:
         state, accepted = tempered_transition_step(
             y,
             state,
@@ -509,6 +511,7 @@ def run_parallel_chains(
     max_temp: float = 5.0,
     n_gibbs_per_temp: int = 5,
     placebo: bool = False,
+    verbose: bool = False,
 ) -> Tuple[List[np.ndarray], List[np.ndarray], List[float], List[float]]:
     """Run multiple chains in parallel using multiprocessing.
 
@@ -531,7 +534,7 @@ def run_parallel_chains(
         max_temp: Maximum temperature (1/beta_min).
         n_gibbs_per_temp: Number of Gibbs steps per temperature.
         placebo: Whether to use placebo relabeling to avoid label switching.
-
+        verbose: Whether to print verbose output.
     Returns:
         Tuple of (all_samples_mu, all_samples_sigma2, all_runtimes, all_acceptance_rates) where:
         - all_samples_mu: List of mean sample arrays, one per chain
@@ -541,7 +544,8 @@ def run_parallel_chains(
     """
     joblib.parallel.DEFAULT_N_JOBS = min(n_chains, cpu_count())
     seeds = [base_seed + i * 1000 for i in range(n_chains)]
-    print(f"Running {n_chains} chains with joblib (backend: loky)...")
+    if verbose:
+        print(f"Running {n_chains} chains with joblib (backend: loky)...")
     results = Parallel(
         n_jobs=min(n_chains, cpu_count()),
         backend="loky",

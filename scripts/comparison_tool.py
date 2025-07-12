@@ -13,7 +13,7 @@ from samplers import run_chain
 from utils import add_common_args, add_comparison_args, parse_all_prior_args
 
 
-def run_comparison(args, show_summary=True):
+def run_comparison(args):
     """
     Run comparison between Gibbs Sampler and Tempered Transitions.
     Save chain results and metrics to data directory.
@@ -24,10 +24,12 @@ def run_comparison(args, show_summary=True):
     # Parse prior parameters
     m0, s0_2, alpha0, beta0 = parse_all_prior_args(args)
 
-    print(f"Running comparison on dataset: {args.data}")
+    if args.verbose:
+        print(f"Running comparison on dataset: {args.data}")
 
     # Run Gibbs Sampler
-    print("Running Gibbs Sampler...")
+    if args.verbose:
+        print("Running Gibbs Sampler...")
     start_time = time.time()
     gibbs_samples_mu, gibbs_samples_sigma2, _, gibbs_acc_rate = run_chain(
         y,
@@ -46,7 +48,8 @@ def run_comparison(args, show_summary=True):
     gibbs_time = time.time() - start_time
 
     # Run Tempered Transitions
-    print("Running Tempered Transitions...")
+    if args.verbose:
+        print("Running Tempered Transitions...")
     start_time = time.time()
     tempered_samples_mu, tempered_samples_sigma2, _, tempered_acc_rate = run_chain(
         y,
@@ -163,7 +166,7 @@ def run_comparison(args, show_summary=True):
     )
 
     # Print summary
-    if show_summary:
+    if args.verbose:
         print("\n=== COMPARISON SUMMARY ===")
         print("MEANS:")
         print(
@@ -629,7 +632,7 @@ def run_all(args):
     """
     if args.verbose:
         print("Step 1: Running comparison...")
-    run_comparison(args, show_summary=args.verbose)
+    run_comparison(args)
 
     if args.verbose:
         print("\nStep 2: Generating plots...")
