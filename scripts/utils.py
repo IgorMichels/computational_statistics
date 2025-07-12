@@ -40,6 +40,12 @@ def add_common_args(subparser):
     subparser.add_argument(
         "--K", type=int, default=4, help="Number of mixture components"
     )
+    subparser.add_argument(
+        "--placebo", action="store_true", help="Use placebo on relabeling"
+    )
+    subparser.add_argument(
+        "--verbose", action="store_true", help="Indicates if verbose output is desired"
+    )
 
 
 def add_sampling_args(subparser, n_iter=10000, burn=2000):
@@ -96,9 +102,6 @@ def add_chain_args(subparser):
         subparser: ArgumentParser subparser to add arguments to
     """
     subparser.add_argument("--chains", type=int, default=4, help="Number of chains")
-    subparser.add_argument(
-        "--placebo", action="store_true", help="Use placebo on relabeling"
-    )
 
 
 def add_tempered_args(subparser, max_temp=10.0, n_gibbs_per_temp=1):

@@ -69,12 +69,13 @@ if __name__ == "__main__":
     mu_metrics = create_metrics(chains_mu, args.data, param_name="mu")
     sigma2_metrics = create_metrics(chains_sigma2, args.data, param_name="sigma2")
 
-    print("\n=== TEMPERED TRANSITIONS SUMMARY ===")
-    print_parameter_summary("μ", mu_metrics)
-    print()
-    print_parameter_summary("σ²", sigma2_metrics)
+    if args.verbose:
+        print("\n=== TEMPERED TRANSITIONS SUMMARY ===")
+        print_parameter_summary("μ", mu_metrics)
+        print()
+        print_parameter_summary("σ²", sigma2_metrics)
 
-    print_runtime_summary(
-        times, acceptance_rates, args.n_temps, args.max_temp, args.n_gibbs_per_temp
-    )
-    print(create_output_message(args.data))
+        print_runtime_summary(
+            times, acceptance_rates, args.n_temps, args.max_temp, args.n_gibbs_per_temp
+        )
+        print(create_output_message(args.data))

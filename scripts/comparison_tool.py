@@ -65,7 +65,8 @@ def run_comparison(args, show_summary=True):
     tempered_time = time.time() - start_time
 
     # Calculate metrics for means
-    print("Computing metrics...")
+    if args.verbose:
+        print("Computing metrics...")
     gibbs_ci_mu = np.array(
         [compute_credible_intervals(gibbs_samples_mu[:, k]) for k in range(args.K)]
     )
@@ -179,7 +180,8 @@ def run_comparison(args, show_summary=True):
         print(f"  Gibbs:    ESS={np.round(gibbs_ess_sigma2, 1)}")
         print(f"  Tempered: ESS={np.round(tempered_ess_sigma2, 1)}")
 
-    print(f"Results saved to: {results_dir}")
+    if args.verbose:
+        print(f"Results saved to: {results_dir}")
 
     return results
 
@@ -617,20 +619,24 @@ def generate_plots(args):
     fig_complete = create_complete_plot(results, K)
     fig_complete.write_image(output_dir / "complete_comparison.png")
 
-    print(f"Plots saved to: {output_dir}")
+    if args.verbose:
+        print(f"Plots saved to: {output_dir}")
 
 
 def run_all(args):
     """
     Run complete comparison: compute results and generate plots.
     """
-    print("Step 1: Running comparison...")
-    run_comparison(args)
+    if args.verbose:
+        print("Step 1: Running comparison...")
+    run_comparison(args, show_summary=args.verbose)
 
-    print("\nStep 2: Generating plots...")
+    if args.verbose:
+        print("\nStep 2: Generating plots...")
     generate_plots(args)
 
-    print("\nComparison complete!")
+    if args.verbose:
+        print("\nComparison complete!")
 
 
 def main():
