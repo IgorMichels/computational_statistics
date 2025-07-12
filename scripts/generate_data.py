@@ -36,15 +36,28 @@ def generate_data(
     data_dir = Path("../data")
     data_dir.mkdir(exist_ok=True)
     data_dir = Path(f"../data/{name}")
-    figure_dir = Path(f"../figures/{name}")
     data_dir.mkdir(exist_ok=True)
+
+    figure_dir = Path("../figures/")
     figure_dir.mkdir(exist_ok=True)
+    figure_dir = Path(f"../figures/{name}")
+    figure_dir.mkdir(exist_ok=True)
+
     K = len(means)
     classes = np.random.choice(range(K), size=n, p=weights)
     sample_means = [means[c] for c in classes]
     sample_sigmas = [sigmas[c] for c in classes]
     data = np.random.normal(loc=sample_means, scale=sample_sigmas)
     np.save(data_dir / "data.npy", data)
+
+    # save true parameters for reference
+    true_params = {
+        "means": means,
+        "weights": weights,
+        "sigmas": sigmas,
+        "variances": [s**2 for s in sigmas],
+    }
+    np.save(data_dir / "true_params.npy", true_params)
 
     # plot generator density
     lim_inf = min(means) - 4 * max(sigmas)
@@ -123,12 +136,17 @@ if __name__ == "__main__":
     np.random.seed(0)
 
     n = 600
-    sigmas = [1.0, 1.0, 1.0, 1.0]
+    sigmas = [0.5, 1.0, 1.5, 2.0]
     means = [-2.0, 0.0, 3.0, 5.0]
     weights = [0.2, 0.3, 0.1, 0.4]
     generate_data(n, means, weights, sigmas, "example_1")
 
-    sigmas = [1.0, 1.0, 1.0, 1.0, 1.0]
+    sigmas = [0.8, 1.2, 0.6, 1.8, 0.4]
     means = [-2.0, 0.0, 3.0, 5.0, 15.0]
     weights = [0.2, 0.3, 0.1, 0.35, 0.05]
     generate_data(n, means, weights, sigmas, "example_2")
+
+    sigmas = [1.0, 1.0, 1.0, 1.0]
+    means = [-2.0, 0.0, 3.0, 5.0]
+    weights = [0.2, 0.3, 0.1, 0.4]
+    generate_data(n, means, weights, sigmas, "example_3")

@@ -7,46 +7,62 @@ import numpy as np
 from metrics import create_metrics
 from plots import create_diagnostic_plots
 from samplers import run_parallel_chains
+from utils import (
+    add_gibbs_args,
+    create_output_message,
+    parse_all_prior_args,
+    print_parameter_summary,
+    print_runtime_summary,
+)
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 if __name__ == "__main__":
-    ap = argparse.ArgumentParser(description="Gibbs Sampler for Gaussian mixture")
-    ap.add_argument("--data", type=str, default="example_1", help="Data directory")
-    ap.add_argument("--K", type=int, default=4, help="Number of mixture components")
-    ap.add_argument("--n_iter", type=int, default=10000, help="Number of iterations")
-    ap.add_argument("--burn", type=int, default=2000, help="Burn-in period")
-    ap.add_argument("--chains", type=int, default=4, help="Number of chains")
-    ap.add_argument("--seed", type=int, default=0, help="Random seed")
-    ap.add_argument("--placebo", action="store_true", help="Use placebo on relabeling")
+    ap = argparse.ArgumentParser(
+        description="Gibbs Sampler for Gaussian mixture with unknown variances"
+    )
+
+    # Add all arguments for Gibbs sampler
+    add_gibbs_args(ap)
+
     args = ap.parse_args()
+
+    # Parse prior parameters using utility function
+    m0, s0_2, alpha0, beta0 = parse_all_prior_args(args)
 
     y = np.load(f"../data/{args.data}/data.npy")
 
     print(f"Running {args.chains} Gibbs chains…")
-    chains, times, _ = run_parallel_chains(
+    chains_mu, chains_sigma2, times, _ = run_parallel_chains(
         y,
         args.K,
         args.n_iter,
         args.burn,
         args.seed,
         n_chains=args.chains,
+        m0=m0,
+        s0_2=s0_2,
+        alpha0=alpha0,
+        beta0=beta0,
         n_temps=1,
         max_temp=1,
         n_gibbs_per_temp=1,
         placebo=args.placebo,
     )
 
-    create_diagnostic_plots("gibbs", chains, args.K, args.chains, args.data)
-    mu_mean, rhat, ess, ci_lower, ci_upper = create_metrics(chains, args.K, args.data)
+    create_diagnostic_plots("gibbs", chains_mu, args.chains, args.data, param_name="mu")
+    create_diagnostic_plots(
+        "gibbs", chains_sigma2, args.chains, args.data, param_name="sigma2"
+    )
 
-    print("\n=== Gibbs SUMMARY ===")
-    print("Posterior mean μ  :", np.round(mu_mean, 4))
-    print("95% CI lower      :", np.round(ci_lower, 4))
-    print("95% CI upper      :", np.round(ci_upper, 4))
-    print("R‑hat (μ)         :", np.round(rhat, 3))
-    print("ESS  (μ)          :", np.round(ess, 1))
-    print(f"Mean runtime / chain: {np.mean(times):.2f}s")
+    mu_metrics = create_metrics(chains_mu, args.data, param_name="mu")
+    sigma2_metrics = create_metrics(chains_sigma2, args.data, param_name="sigma2")
 
-    print(f"\nDiagnostic PNGs saved in ../figures/{args.data}")
+    print("\n=== GIBBS SUMMARY ===")
+    print_parameter_summary("μ", mu_metrics)
+    print()
+    print_parameter_summary("σ²", sigma2_metrics)
+
+    print_runtime_summary(times)
+    print(create_output_message(args.data))

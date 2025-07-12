@@ -1,4 +1,6 @@
-from typing import List
+# pylint: disable=too-many-locals
+
+from typing import List, Optional
 
 import numpy as np
 import plotly.graph_objects as go
@@ -42,8 +44,22 @@ def setup_plot_colors_and_positions(K: int, n_chains: int):
     return param_colors, positions
 
 
+def get_param_label(param_name: str, k: Optional[int] = None) -> str:
+    """Get parameter label for plots."""
+    if param_name == "mu":
+        return f"$\\mu_{{{k + 1}}}$" if k is not None else "$\\mu$"
+    if param_name == "sigma2":
+        return f"$\\sigma^2_{{{k + 1}}}$" if k is not None else "$\\sigma^2$"
+
+    return f"${param_name}_{{{k + 1}}}$" if k is not None else f"${param_name}$"
+
+
 def create_trace_plots(
-    sampler_name: str, chains: List[np.ndarray], K: int, n_chains: int, data_name: str
+    sampler_name: str,
+    chains: List[np.ndarray],
+    n_chains: int,
+    data_name: str,
+    param_name: str = "mu",
 ):
     """Create trace plots for all chains and parameters.
 
@@ -54,10 +70,11 @@ def create_trace_plots(
     Args:
         sampler_name: Name of the sampling algorithm used.
         chains: List of sample arrays, one per chain.
-        K: Number of mixture components.
         n_chains: Number of chains.
         data_name: Name of the dataset for file naming.
+        param_name: Name of the parameter type ("mu" or "sigma2").
     """
+    K = chains[0].shape[1]
     param_colors, positions = setup_plot_colors_and_positions(K, n_chains)
     n_rows = max(positions, key=lambda x: x[0])[0]
     n_cols = max(positions, key=lambda x: x[1])[1]
@@ -75,7 +92,7 @@ def create_trace_plots(
                     y=chains[c][:, k],
                     mode="lines",
                     line={"width": 0.8, "color": param_colors[k]},
-                    name=f"$\\mu_{{{k + 1}}}$",
+                    name=get_param_label(param_name, k),
                     showlegend=(c == 0),
                 ),
                 row=row,
@@ -85,17 +102,23 @@ def create_trace_plots(
     fig_trace_all.update_layout(
         height=600,
         width=1000,
-        title_text="Trace Plots by Chain - All Means",
+        title_text=f"Trace Plots by Chain - {get_param_label(param_name)}",
         plot_bgcolor="white",
         paper_bgcolor="white",
     )
     fig_trace_all.update_xaxes(gridcolor="lightgray")
     fig_trace_all.update_yaxes(gridcolor="lightgray")
-    fig_trace_all.write_image(f"../figures/{data_name}/{sampler_name}_trace.png")
+    fig_trace_all.write_image(
+        f"../figures/{data_name}/{sampler_name}_trace_{param_name}.png"
+    )
 
 
 def create_acf_plots(
-    sampler_name: str, chains: List[np.ndarray], K: int, n_chains: int, data_name: str
+    sampler_name: str,
+    chains: List[np.ndarray],
+    n_chains: int,
+    data_name: str,
+    param_name: str = "mu",
 ):
     """Create autocorrelation function plots for all chains and parameters.
 
@@ -106,10 +129,11 @@ def create_acf_plots(
     Args:
         sampler_name: Name of the sampling algorithm used.
         chains: List of sample arrays, one per chain.
-        K: Number of mixture components.
         n_chains: Number of chains.
         data_name: Name of the dataset for file naming.
+        param_name: Name of the parameter type ("mu" or "sigma2").
     """
+    K = chains[0].shape[1]
     param_colors, positions = setup_plot_colors_and_positions(K, n_chains)
     n_rows = max(positions, key=lambda x: x[0])[0]
     n_cols = max(positions, key=lambda x: x[1])[1]
@@ -130,7 +154,7 @@ def create_acf_plots(
                     mode="markers+lines",
                     line={"color": param_colors[k]},
                     marker={"color": param_colors[k]},
-                    name=f"$\\mu_{{{k + 1}}}$",
+                    name=get_param_label(param_name, k),
                     showlegend=(c == 0),
                 ),
                 row=row,
@@ -140,17 +164,23 @@ def create_acf_plots(
     fig_acf_all.update_layout(
         height=600,
         width=1000,
-        title_text="ACF Plots by Chain - All Means",
+        title_text=f"ACF Plots by Chain - {get_param_label(param_name)}",
         plot_bgcolor="white",
         paper_bgcolor="white",
     )
     fig_acf_all.update_xaxes(gridcolor="lightgray")
     fig_acf_all.update_yaxes(gridcolor="lightgray")
-    fig_acf_all.write_image(f"../figures/{data_name}/{sampler_name}_acf.png")
+    fig_acf_all.write_image(
+        f"../figures/{data_name}/{sampler_name}_acf_{param_name}.png"
+    )
 
 
 def create_histogram_plots(
-    sampler_name: str, chains: List[np.ndarray], K: int, n_chains: int, data_name: str
+    sampler_name: str,
+    chains: List[np.ndarray],
+    n_chains: int,
+    data_name: str,
+    param_name: str = "mu",
 ):
     """Create histogram plots for all chains and parameters.
 
@@ -161,10 +191,11 @@ def create_histogram_plots(
     Args:
         sampler_name: Name of the sampling algorithm used.
         chains: List of sample arrays, one per chain.
-        K: Number of mixture components.
         n_chains: Number of chains.
         data_name: Name of the dataset for file naming.
+        param_name: Name of the parameter type ("mu" or "sigma2").
     """
+    K = chains[0].shape[1]
     param_colors, positions = setup_plot_colors_and_positions(K, n_chains)
     n_rows = max(positions, key=lambda x: x[0])[0]
     n_cols = max(positions, key=lambda x: x[1])[1]
@@ -183,7 +214,7 @@ def create_histogram_plots(
                     nbinsx=30,
                     opacity=0.6,
                     marker={"color": param_colors[k]},
-                    name=f"$\\mu_{{{k + 1}}}$",
+                    name=get_param_label(param_name, k),
                     showlegend=(c == 0),
                 ),
                 row=row,
@@ -193,18 +224,24 @@ def create_histogram_plots(
     fig_hist_all.update_layout(
         height=600,
         width=1000,
-        title_text="Histograms by Chain - All Means",
+        title_text=f"Histograms by Chain - {get_param_label(param_name)}",
         barmode="overlay",
         plot_bgcolor="white",
         paper_bgcolor="white",
     )
     fig_hist_all.update_xaxes(gridcolor="lightgray")
     fig_hist_all.update_yaxes(gridcolor="lightgray")
-    fig_hist_all.write_image(f"../figures/{data_name}/{sampler_name}_hist.png")
+    fig_hist_all.write_image(
+        f"../figures/{data_name}/{sampler_name}_hist_{param_name}.png"
+    )
 
 
 def create_diagnostic_plots(
-    sampler_name: str, chains: List[np.ndarray], K: int, n_chains: int, data_name: str
+    sampler_name: str,
+    chains: List[np.ndarray],
+    n_chains: int,
+    data_name: str,
+    param_name: str = "mu",
 ):
     """Create all diagnostic plots (trace, ACF, and histograms).
 
@@ -216,10 +253,10 @@ def create_diagnostic_plots(
     Args:
         sampler_name: Name of the sampling algorithm used.
         chains: List of sample arrays, one per chain.
-        K: Number of mixture components.
         n_chains: Number of chains.
         data_name: Name of the dataset for file naming.
+        param_name: Name of the parameter type ("mu" or "sigma2").
     """
-    create_trace_plots(sampler_name, chains, K, n_chains, data_name)
-    create_acf_plots(sampler_name, chains, K, n_chains, data_name)
-    create_histogram_plots(sampler_name, chains, K, n_chains, data_name)
+    create_trace_plots(sampler_name, chains, n_chains, data_name, param_name)
+    create_acf_plots(sampler_name, chains, n_chains, data_name, param_name)
+    create_histogram_plots(sampler_name, chains, n_chains, data_name, param_name)

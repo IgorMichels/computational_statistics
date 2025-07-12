@@ -7,38 +7,44 @@ import numpy as np
 from metrics import create_metrics
 from plots import create_diagnostic_plots
 from samplers import run_parallel_chains
+from utils import (
+    add_tempered_transitions_args,
+    create_output_message,
+    parse_all_prior_args,
+    print_parameter_summary,
+    print_runtime_summary,
+)
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(
-        description="Tempered Transitions for Gaussian mixture"
+        description="Tempered Transitions for Gaussian mixture with unknown variances"
     )
-    ap.add_argument("--data", type=str, default="example_1", help="Data directory")
-    ap.add_argument("--K", type=int, default=4, help="Number of mixture components")
-    ap.add_argument("--n_iter", type=int, default=10000, help="Number of iterations")
-    ap.add_argument("--burn", type=int, default=2000, help="Burn-in period")
-    ap.add_argument("--chains", type=int, default=4, help="Number of chains")
-    ap.add_argument("--seed", type=int, default=0, help="Random seed")
-    ap.add_argument("--n_temps", type=int, default=10, help="Number of temperatures")
-    ap.add_argument("--max_temp", type=float, default=10.0, help="Maximum temperature")
-    ap.add_argument(
-        "--n_gibbs_per_temp", type=int, default=1, help="Gibbs steps per temperature"
-    )
-    ap.add_argument("--placebo", action="store_true", help="Use placebo on relabeling")
+
+    # Add all arguments for tempered transitions
+    add_tempered_transitions_args(ap)
+
     args = ap.parse_args()
+
+    # Parse prior parameters using utility function
+    m0, s0_2, alpha0, beta0 = parse_all_prior_args(args)
 
     y = np.load(f"../data/{args.data}/data.npy")
 
     print(f"Running {args.chains} Tempered Transitions chains...")
-    chains, times, acceptance_rates = run_parallel_chains(
+    chains_mu, chains_sigma2, times, acceptance_rates = run_parallel_chains(
         y,
         args.K,
         args.n_iter,
         args.burn,
         args.seed,
         n_chains=args.chains,
+        m0=m0,
+        s0_2=s0_2,
+        alpha0=alpha0,
+        beta0=beta0,
         n_temps=args.n_temps,
         max_temp=args.max_temp,
         n_gibbs_per_temp=args.n_gibbs_per_temp,
@@ -46,19 +52,29 @@ if __name__ == "__main__":
     )
 
     create_diagnostic_plots(
-        "tempered_transitions", chains, args.K, args.chains, args.data
+        "tempered_transitions",
+        chains_mu,
+        args.chains,
+        args.data,
+        param_name="mu",
     )
-    mu_mean, rhat, ess, ci_lower, ci_upper = create_metrics(chains, args.K, args.data)
+    create_diagnostic_plots(
+        "tempered_transitions",
+        chains_sigma2,
+        args.chains,
+        args.data,
+        param_name="sigma2",
+    )
+
+    mu_metrics = create_metrics(chains_mu, args.data, param_name="mu")
+    sigma2_metrics = create_metrics(chains_sigma2, args.data, param_name="sigma2")
 
     print("\n=== TEMPERED TRANSITIONS SUMMARY ===")
-    print("Posterior mean μ   :", np.round(mu_mean, 4))
-    print("95% CI lower       :", np.round(ci_lower, 4))
-    print("95% CI upper       :", np.round(ci_upper, 4))
-    print("R-hat (μ)          :", np.round(rhat, 3))
-    print("ESS  (μ)           :", np.round(ess, 1))
-    print(f"Average time / chain: {np.mean(times):.2f}s")
-    print(f"Average acceptance rate: {np.mean(acceptance_rates):.2%}")
-    print(f"Parameters: {args.n_temps} temperatures, max_temp={args.max_temp}")
-    print(f"            {args.n_gibbs_per_temp} Gibbs steps per temperature")
+    print_parameter_summary("μ", mu_metrics)
+    print()
+    print_parameter_summary("σ²", sigma2_metrics)
 
-    print(f"\nDiagnostic PNGs saved in ../figures/{args.data}")
+    print_runtime_summary(
+        times, acceptance_rates, args.n_temps, args.max_temp, args.n_gibbs_per_temp
+    )
+    print(create_output_message(args.data))

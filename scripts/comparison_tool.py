@@ -1,3 +1,4 @@
+# pylint: disable=duplicate-code
 # pylint: disable=too-many-locals
 
 import argparse
@@ -9,6 +10,7 @@ import plotly.graph_objects as go
 import plotly.subplots as sp
 from metrics import acf_1d, compute_credible_intervals, ess_1d
 from samplers import run_chain
+from utils import add_common_args, add_comparison_args, parse_all_prior_args
 
 
 def run_comparison(args, show_summary=True):
@@ -19,17 +21,24 @@ def run_comparison(args, show_summary=True):
     # Load data
     y = np.load(f"../data/{args.data}/data.npy")
 
+    # Parse prior parameters
+    m0, s0_2, alpha0, beta0 = parse_all_prior_args(args)
+
     print(f"Running comparison on dataset: {args.data}")
 
     # Run Gibbs Sampler
     print("Running Gibbs Sampler...")
     start_time = time.time()
-    gibbs_samples, _, gibbs_acc_rate = run_chain(
+    gibbs_samples_mu, gibbs_samples_sigma2, _, gibbs_acc_rate = run_chain(
         y,
         args.K,
         args.n_iter,
         args.burn,
         args.seed,
+        m0=m0,
+        s0_2=s0_2,
+        alpha0=alpha0,
+        beta0=beta0,
         n_temps=1,
         max_temp=1,
         n_gibbs_per_temp=1,
@@ -39,57 +48,93 @@ def run_comparison(args, show_summary=True):
     # Run Tempered Transitions
     print("Running Tempered Transitions...")
     start_time = time.time()
-    tempered_samples, _, tempered_acc_rate = run_chain(
+    tempered_samples_mu, tempered_samples_sigma2, _, tempered_acc_rate = run_chain(
         y,
         args.K,
         args.n_iter,
         args.burn,
         args.seed,
-        n_temps=args.n_temps,
-        max_temp=args.max_temp,
-        n_gibbs_per_temp=args.n_gibbs_per_temp,
+        m0=m0,
+        s0_2=s0_2,
+        alpha0=alpha0,
+        beta0=beta0,
+        n_temps=getattr(args, "n_temps", 10),
+        max_temp=getattr(args, "max_temp", 5.0),
+        n_gibbs_per_temp=getattr(args, "n_gibbs_per_temp", 5),
     )
     tempered_time = time.time() - start_time
 
-    # Calculate metrics
+    # Calculate metrics for means
     print("Computing metrics...")
-    gibbs_ci = np.array(
-        [compute_credible_intervals(gibbs_samples[:, k]) for k in range(args.K)]
+    gibbs_ci_mu = np.array(
+        [compute_credible_intervals(gibbs_samples_mu[:, k]) for k in range(args.K)]
     )
-    tempered_ci = np.array(
-        [compute_credible_intervals(tempered_samples[:, k]) for k in range(args.K)]
+    tempered_ci_mu = np.array(
+        [compute_credible_intervals(tempered_samples_mu[:, k]) for k in range(args.K)]
     )
 
-    gibbs_ess = np.array([ess_1d(gibbs_samples[:, k]) for k in range(args.K)])
-    tempered_ess = np.array([ess_1d(tempered_samples[:, k]) for k in range(args.K)])
+    gibbs_ess_mu = np.array([ess_1d(gibbs_samples_mu[:, k]) for k in range(args.K)])
+    tempered_ess_mu = np.array(
+        [ess_1d(tempered_samples_mu[:, k]) for k in range(args.K)]
+    )
+
+    # Calculate metrics for variances
+    gibbs_ci_sigma2 = np.array(
+        [compute_credible_intervals(gibbs_samples_sigma2[:, k]) for k in range(args.K)]
+    )
+    tempered_ci_sigma2 = np.array(
+        [
+            compute_credible_intervals(tempered_samples_sigma2[:, k])
+            for k in range(args.K)
+        ]
+    )
+
+    gibbs_ess_sigma2 = np.array(
+        [ess_1d(gibbs_samples_sigma2[:, k]) for k in range(args.K)]
+    )
+    tempered_ess_sigma2 = np.array(
+        [ess_1d(tempered_samples_sigma2[:, k]) for k in range(args.K)]
+    )
 
     # Create results directory
     results_dir = Path(f"../data/{args.data}/comparison_results")
     results_dir.mkdir(exist_ok=True, parents=True)
 
     # Save samples
-    np.save(results_dir / "gibbs_samples.npy", gibbs_samples)
-    np.save(results_dir / "tempered_samples.npy", tempered_samples)
+    np.save(results_dir / "gibbs_samples_mu.npy", gibbs_samples_mu)
+    np.save(results_dir / "gibbs_samples_sigma2.npy", gibbs_samples_sigma2)
+    np.save(results_dir / "tempered_samples_mu.npy", tempered_samples_mu)
+    np.save(results_dir / "tempered_samples_sigma2.npy", tempered_samples_sigma2)
 
     # Save structured results
     results = {
         "gibbs": {
-            "samples": gibbs_samples,
+            "samples_mu": gibbs_samples_mu,
+            "samples_sigma2": gibbs_samples_sigma2,
             "time": gibbs_time,
             "acceptance_rate": gibbs_acc_rate,
-            "means": gibbs_samples.mean(axis=0),
-            "stds": gibbs_samples.std(axis=0),
-            "credible_intervals": gibbs_ci,
-            "ess": gibbs_ess,
+            "means_mu": gibbs_samples_mu.mean(axis=0),
+            "stds_mu": gibbs_samples_mu.std(axis=0),
+            "means_sigma2": gibbs_samples_sigma2.mean(axis=0),
+            "stds_sigma2": gibbs_samples_sigma2.std(axis=0),
+            "credible_intervals_mu": gibbs_ci_mu,
+            "credible_intervals_sigma2": gibbs_ci_sigma2,
+            "ess_mu": gibbs_ess_mu,
+            "ess_sigma2": gibbs_ess_sigma2,
         },
         "tempered": {
-            "samples": tempered_samples,
+            "samples_mu": tempered_samples_mu,
+            "samples_sigma2": tempered_samples_sigma2,
             "time": tempered_time,
             "acceptance_rate": tempered_acc_rate,
-            "means": tempered_samples.mean(axis=0),
-            "stds": tempered_samples.std(axis=0),
-            "credible_intervals": tempered_ci,
-            "ess": tempered_ess,
+            "means_mu": tempered_samples_mu.mean(axis=0),
+            "stds_mu": tempered_samples_mu.std(axis=0),
+            "means_sigma2": tempered_samples_sigma2.mean(axis=0),
+            "stds_sigma2": tempered_samples_sigma2.std(axis=0),
+            "credible_intervals_mu": tempered_ci_mu,
+            "credible_intervals_sigma2": tempered_ci_sigma2,
+            "ess_mu": tempered_ess_mu,
+            "ess_sigma2": tempered_ess_sigma2,
         },
         "parameters": {
             "dataset": args.data,
@@ -97,11 +142,15 @@ def run_comparison(args, show_summary=True):
             "n_iter": args.n_iter,
             "burn": args.burn,
             "seed": args.seed,
+            "m0": m0.tolist() if hasattr(m0, "tolist") else m0,
+            "s0_2": s0_2.tolist() if hasattr(s0_2, "tolist") else s0_2,
+            "alpha0": alpha0.tolist() if hasattr(alpha0, "tolist") else alpha0,
+            "beta0": beta0.tolist() if hasattr(beta0, "tolist") else beta0,
             "gibbs_params": {"n_temps": 1, "max_temp": 1, "n_gibbs_per_temp": 1},
             "tempered_params": {
-                "n_temps": args.n_temps,
-                "max_temp": args.max_temp,
-                "n_gibbs_per_temp": args.n_gibbs_per_temp,
+                "n_temps": getattr(args, "n_temps", 10),
+                "max_temp": getattr(args, "max_temp", 5.0),
+                "n_gibbs_per_temp": getattr(args, "n_gibbs_per_temp", 5),
             },
         },
     }
@@ -115,16 +164,20 @@ def run_comparison(args, show_summary=True):
     # Print summary
     if show_summary:
         print("\n=== COMPARISON SUMMARY ===")
+        print("MEANS:")
         print(
-            f"Gibbs:    {gibbs_time:.2f}s,",
+            f"  Gibbs:    {gibbs_time:.2f}s,",
             f"acc={gibbs_acc_rate:.2%},",
-            f"ESS={np.round(gibbs_ess, 1)}",
+            f"ESS={np.round(gibbs_ess_mu, 1)}",
         )
         print(
-            f"Tempered: {tempered_time:.2f}s,",
+            f"  Tempered: {tempered_time:.2f}s,",
             f"acc={tempered_acc_rate:.2%},",
-            f"ESS={np.round(tempered_ess, 1)}",
+            f"ESS={np.round(tempered_ess_mu, 1)}",
         )
+        print("VARIANCES:")
+        print(f"  Gibbs:    ESS={np.round(gibbs_ess_sigma2, 1)}")
+        print(f"  Tempered: ESS={np.round(tempered_ess_sigma2, 1)}")
 
     print(f"Results saved to: {results_dir}")
 
@@ -149,22 +202,36 @@ def load_comparison_results(dataset_name):
     # Reconstruct data structure
     results = {
         "gibbs": {
-            "samples": data["gibbs"].item()["samples"],
+            "samples_mu": data["gibbs"].item()["samples_mu"],
+            "samples_sigma2": data["gibbs"].item()["samples_sigma2"],
             "time": data["gibbs"].item()["time"],
             "acceptance_rate": data["gibbs"].item().get("acceptance_rate", 0.0),
-            "means": data["gibbs"].item()["means"],
-            "stds": data["gibbs"].item()["stds"],
-            "credible_intervals": data["gibbs"].item()["credible_intervals"],
-            "ess": data["gibbs"].item()["ess"],
+            "means_mu": data["gibbs"].item()["means_mu"],
+            "stds_mu": data["gibbs"].item()["stds_mu"],
+            "means_sigma2": data["gibbs"].item()["means_sigma2"],
+            "stds_sigma2": data["gibbs"].item()["stds_sigma2"],
+            "credible_intervals_mu": data["gibbs"].item()["credible_intervals_mu"],
+            "credible_intervals_sigma2": data["gibbs"].item()[
+                "credible_intervals_sigma2"
+            ],
+            "ess_mu": data["gibbs"].item()["ess_mu"],
+            "ess_sigma2": data["gibbs"].item()["ess_sigma2"],
         },
         "tempered": {
-            "samples": data["tempered"].item()["samples"],
+            "samples_mu": data["tempered"].item()["samples_mu"],
+            "samples_sigma2": data["tempered"].item()["samples_sigma2"],
             "time": data["tempered"].item()["time"],
             "acceptance_rate": data["tempered"].item().get("acceptance_rate", 0.0),
-            "means": data["tempered"].item()["means"],
-            "stds": data["tempered"].item()["stds"],
-            "credible_intervals": data["tempered"].item()["credible_intervals"],
-            "ess": data["tempered"].item()["ess"],
+            "means_mu": data["tempered"].item()["means_mu"],
+            "stds_mu": data["tempered"].item()["stds_mu"],
+            "means_sigma2": data["tempered"].item()["means_sigma2"],
+            "stds_sigma2": data["tempered"].item()["stds_sigma2"],
+            "credible_intervals_mu": data["tempered"].item()["credible_intervals_mu"],
+            "credible_intervals_sigma2": data["tempered"].item()[
+                "credible_intervals_sigma2"
+            ],
+            "ess_mu": data["tempered"].item()["ess_mu"],
+            "ess_sigma2": data["tempered"].item()["ess_sigma2"],
         },
         "parameters": {
             "dataset": str(data.get("dataset", dataset_name)),
@@ -175,12 +242,13 @@ def load_comparison_results(dataset_name):
     return results
 
 
-def create_trace_plots(gibbs_samples, tempered_samples, K):
+def create_trace_plots(gibbs_samples, tempered_samples, K, param_name="mu"):
     """Create comparative trace plots"""
+    param_label = "$\\mu$" if param_name == "mu" else "$\\sigma^2$"
     fig = sp.make_subplots(
         rows=1,
         cols=K,
-        subplot_titles=[f"$\\mu_{{{k + 1}}}$" for k in range(K)],
+        subplot_titles=[f"{param_label}_{{{k + 1}}}" for k in range(K)],
         horizontal_spacing=0.05,
     )
 
@@ -198,41 +266,32 @@ def create_trace_plots(gibbs_samples, tempered_samples, K):
                     mode="lines",
                     name=name,
                     line={"color": color, "width": 1},
-                    opacity=0.7,
                     showlegend=(k == 0),
                 ),
                 row=1,
                 col=col,
             )
-        fig.update_xaxes(title_text="Iteration", row=1, col=col)
-        fig.update_yaxes(title_text="Value", row=1, col=col)
 
     fig.update_layout(
-        title="Trace Plots - Method Comparison",
-        title_x=0.5,
+        title=f"Trace Plots Comparison - {param_label}",
         height=400,
-        width=1400,
-        showlegend=True,
-        legend={
-            "orientation": "h",
-            "yanchor": "bottom",
-            "y": 1.02,
-            "xanchor": "center",
-            "x": 0.5,
-        },
+        width=1200,
         plot_bgcolor="white",
         paper_bgcolor="white",
     )
+    fig.update_xaxes(gridcolor="lightgray")
+    fig.update_yaxes(gridcolor="lightgray")
 
     return fig
 
 
-def create_acf_plots(gibbs_samples, tempered_samples, K, max_lag=40):
-    """Create autocorrelation plots"""
+def create_acf_plots(gibbs_samples, tempered_samples, K, param_name="mu", max_lag=40):
+    """Create comparative ACF plots"""
+    param_label = "$\\mu$" if param_name == "mu" else "$\\sigma^2$"
     fig = sp.make_subplots(
         rows=1,
         cols=K,
-        subplot_titles=[f"$\\mu_{{{k + 1}}}$" for k in range(K)],
+        subplot_titles=[f"{param_label}_{{{k + 1}}}" for k in range(K)],
         horizontal_spacing=0.05,
     )
 
@@ -243,411 +302,372 @@ def create_acf_plots(gibbs_samples, tempered_samples, K, max_lag=40):
     for k in range(K):
         col = k + 1
         for _, (sample, color, name) in enumerate(zip(samples, colors, names)):
-            acf = acf_1d(sample[:, k], max_lag)
+            acf_vals = acf_1d(sample[:, k], max_lag)
             fig.add_trace(
                 go.Scatter(
-                    x=list(range(len(acf))),
-                    y=acf,
+                    x=list(range(len(acf_vals))),
+                    y=acf_vals,
                     mode="lines+markers",
                     name=name,
-                    line={"color": color, "width": 2},
-                    marker={"size": 3},
+                    line={"color": color},
+                    marker={"color": color, "size": 3},
                     showlegend=(k == 0),
                 ),
                 row=1,
                 col=col,
             )
-        fig.add_hline(
-            y=0, line_dash="dash", line_color="gray", opacity=0.5, row=1, col=col
-        )
-        fig.update_xaxes(title_text="Lag", row=1, col=col)
-        fig.update_yaxes(title_text="ACF", row=1, col=col)
 
     fig.update_layout(
-        title="Autocorrelation Functions - Method Comparison",
-        title_x=0.5,
+        title=f"ACF Plots Comparison - {param_label}",
         height=400,
-        width=1400,
-        showlegend=True,
-        legend={
-            "orientation": "h",
-            "yanchor": "bottom",
-            "y": 1.02,
-            "xanchor": "center",
-            "x": 0.5,
-        },
+        width=1200,
         plot_bgcolor="white",
         paper_bgcolor="white",
     )
+    fig.update_xaxes(gridcolor="lightgray")
+    fig.update_yaxes(gridcolor="lightgray")
 
     return fig
 
 
-def create_histogram_plots(gibbs_samples, tempered_samples, gibbs_ci, tempered_ci, K):
-    """Create histograms with credible intervals"""
+def create_histogram_plots(
+    gibbs_samples, tempered_samples, gibbs_ci, tempered_ci, param_name="mu"
+):
+    """Create comparative histogram plots"""
+    K = gibbs_samples.shape[1]
+    param_label = "$\\mu$" if param_name == "mu" else "$\\sigma^2$"
     fig = sp.make_subplots(
         rows=1,
         cols=K,
-        subplot_titles=[f"$\\mu_{{{k + 1}}}$" for k in range(K)],
+        subplot_titles=[f"{param_label}_{{{k + 1}}}" for k in range(K)],
         horizontal_spacing=0.05,
     )
 
     colors = ["blue", "red"]
     names = ["Gibbs Sampler", "Tempered Transitions"]
     samples = [gibbs_samples, tempered_samples]
-    intervals = [gibbs_ci, tempered_ci]
+    cis = [gibbs_ci, tempered_ci]
 
     for k in range(K):
         col = k + 1
-        for _, (sample, color, name, ci) in enumerate(
-            zip(samples, colors, names, intervals)
-        ):
+        for _, (sample, color, name, ci) in enumerate(zip(samples, colors, names, cis)):
             fig.add_trace(
                 go.Histogram(
                     x=sample[:, k],
+                    nbinsx=30,
                     name=name,
                     opacity=0.6,
-                    marker_color=color,
-                    nbinsx=30,
+                    marker={"color": color},
                     showlegend=(k == 0),
                 ),
                 row=1,
                 col=col,
             )
 
-            # Add vertical lines for credible intervals
+            # Add credible interval lines
             fig.add_vline(
-                x=ci[k, 0],
-                line_dash="dash",
-                line_color=color,
-                line_width=2,
-                opacity=0.8,
+                x=ci[k][0],
+                line={"dash": "dash", "color": color, "width": 1},
                 row=1,
                 col=col,
             )
             fig.add_vline(
-                x=ci[k, 1],
-                line_dash="dash",
-                line_color=color,
-                line_width=2,
-                opacity=0.8,
+                x=ci[k][1],
+                line={"dash": "dash", "color": color, "width": 1},
                 row=1,
                 col=col,
             )
-        fig.update_xaxes(title_text="Value", row=1, col=col)
-        fig.update_yaxes(title_text="Frequency", row=1, col=col)
 
     fig.update_layout(
-        title="Histograms with Credible Intervals - Method Comparison",
-        title_x=0.5,
+        title=f"Posterior Distributions Comparison - {param_label}",
         height=400,
-        width=1400,
-        showlegend=True,
-        legend={
-            "orientation": "h",
-            "yanchor": "bottom",
-            "y": 1.02,
-            "xanchor": "center",
-            "x": 0.5,
-        },
+        width=1200,
+        barmode="overlay",
         plot_bgcolor="white",
         paper_bgcolor="white",
     )
+    fig.update_xaxes(gridcolor="lightgray")
+    fig.update_yaxes(gridcolor="lightgray")
 
     return fig
 
 
-def create_complete_plot(gibbs_samples, tempered_samples, gibbs_ci, tempered_ci, K):
-    """Create complete figure with all plots"""
+def create_complete_plot(results, K):
+    """Create a complete comparison plot with all diagnostics for both mu and sigma2"""
+    # Create subplots: 6 rows (3 for mu, 3 for sigma2), K columns
     fig = sp.make_subplots(
-        rows=3,
+        rows=6,
         cols=K,
-        subplot_titles=[f"$\\mu_{{{k + 1}}}$" for k in range(K)] + [""] * (2 * K),
-        specs=[
-            [{"secondary_y": False} for _ in range(K)],
-            [{"secondary_y": False} for _ in range(K)],
-            [{"secondary_y": False} for _ in range(K)],
-        ],
+        subplot_titles=[f"$\\mu_{{{k + 1}}}$" for k in range(K)]
+        + [f"$\\sigma^2_{{{k + 1}}}$" for k in range(K)],
         vertical_spacing=0.08,
         horizontal_spacing=0.05,
+        specs=[[{"secondary_y": False} for _ in range(K)] for _ in range(6)],
     )
 
     colors = ["blue", "red"]
     names = ["Gibbs Sampler", "Tempered Transitions"]
-    samples = [gibbs_samples, tempered_samples]
-    intervals = [gibbs_ci, tempered_ci]
 
-    # 1. Trace plots
-    for k in range(K):
-        col = k + 1
-        for _, (sample, color, name) in enumerate(zip(samples, colors, names)):
-            fig.add_trace(
-                go.Scatter(
-                    x=list(range(len(sample))),
-                    y=sample[:, k],
-                    mode="lines",
-                    name=name,
-                    line={"color": color, "width": 1},
-                    opacity=0.7,
-                    showlegend=(k == 0),
-                ),
-                row=1,
-                col=col,
-            )
+    # Plot mu parameters
+    for param_idx, param_name in enumerate(["mu", "sigma2"]):
+        row_offset = param_idx * 3
 
-    # 2. Autocorrelation plots
-    max_lag = 40
-    for k in range(K):
-        col = k + 1
-        for _, (sample, color, name) in enumerate(zip(samples, colors, names)):
-            acf = acf_1d(sample[:, k], max_lag)
-            fig.add_trace(
-                go.Scatter(
-                    x=list(range(len(acf))),
-                    y=acf,
-                    mode="lines+markers",
-                    name=name,
-                    line={"color": color, "width": 2},
-                    marker={"size": 3},
-                    showlegend=False,
-                ),
-                row=2,
-                col=col,
-            )
-        fig.add_hline(
-            y=0, line_dash="dash", line_color="gray", opacity=0.5, row=2, col=col
-        )
+        gibbs_samples = results["gibbs"][f"samples_{param_name}"]
+        tempered_samples = results["tempered"][f"samples_{param_name}"]
+        gibbs_ci = results["gibbs"][f"credible_intervals_{param_name}"]
+        tempered_ci = results["tempered"][f"credible_intervals_{param_name}"]
 
-    # 3. Histograms
-    for k in range(K):
-        col = k + 1
-        for _, (sample, color, name, ci) in enumerate(
-            zip(samples, colors, names, intervals)
-        ):
-            fig.add_trace(
-                go.Histogram(
-                    x=sample[:, k],
-                    name=name,
-                    opacity=0.6,
-                    marker_color=color,
-                    nbinsx=30,
-                    showlegend=False,
-                ),
-                row=3,
-                col=col,
-            )
+        samples = [gibbs_samples, tempered_samples]
+        cis = [gibbs_ci, tempered_ci]
 
-            # Credible intervals
-            fig.add_vline(
-                x=ci[k, 0],
-                line_dash="dash",
-                line_color=color,
-                line_width=2,
-                opacity=0.8,
-                row=3,
-                col=col,
-            )
-            fig.add_vline(
-                x=ci[k, 1],
-                line_dash="dash",
-                line_color=color,
-                line_width=2,
-                opacity=0.8,
-                row=3,
-                col=col,
-            )
+        for k in range(K):
+            col = k + 1
 
-    # Configure axes
-    for k in range(K):
-        fig.update_xaxes(title_text="Iteration", row=1, col=k + 1)
-        fig.update_yaxes(title_text="Value", row=1, col=k + 1)
+            # Trace plots
+            for _, (sample, color, name) in enumerate(zip(samples, colors, names)):
+                fig.add_trace(
+                    go.Scatter(
+                        x=list(range(len(sample))),
+                        y=sample[:, k],
+                        mode="lines",
+                        name=name,
+                        line={"color": color, "width": 1},
+                        showlegend=(k == 0 and param_idx == 0),
+                    ),
+                    row=row_offset + 1,
+                    col=col,
+                )
 
-        fig.update_xaxes(title_text="Lag", row=2, col=k + 1)
-        fig.update_yaxes(title_text="ACF", row=2, col=k + 1)
+            # ACF plots
+            for _, (sample, color, name) in enumerate(zip(samples, colors, names)):
+                acf_vals = acf_1d(sample[:, k], 40)
+                fig.add_trace(
+                    go.Scatter(
+                        x=list(range(len(acf_vals))),
+                        y=acf_vals,
+                        mode="lines+markers",
+                        name=name,
+                        line={"color": color},
+                        marker={"color": color, "size": 3},
+                        showlegend=False,
+                    ),
+                    row=row_offset + 2,
+                    col=col,
+                )
 
-        fig.update_xaxes(title_text="Value", row=3, col=k + 1)
-        fig.update_yaxes(title_text="Frequency", row=3, col=k + 1)
+            # Histograms
+            for _, (sample, color, name, _) in enumerate(
+                zip(samples, colors, names, cis)
+            ):
+                fig.add_trace(
+                    go.Histogram(
+                        x=sample[:, k],
+                        nbinsx=30,
+                        name=name,
+                        opacity=0.6,
+                        marker={"color": color},
+                        showlegend=False,
+                    ),
+                    row=row_offset + 3,
+                    col=col,
+                )
 
+    # Update layout
     fig.update_layout(
-        title="Detailed Comparison: Gibbs Sampler vs Tempered Transitions",
-        title_x=0.5,
-        height=900,
+        title="Complete Comparison: Gibbs vs Tempered Transitions",
+        height=1200,
         width=1400,
-        showlegend=True,
-        legend={
-            "orientation": "h",
-            "yanchor": "bottom",
-            "y": 1.02,
-            "xanchor": "center",
-            "x": 0.5,
-        },
+        barmode="overlay",
         plot_bgcolor="white",
         paper_bgcolor="white",
     )
+
+    # Add row labels
+    fig.add_annotation(
+        x=-0.05,
+        y=0.83,
+        xref="paper",
+        yref="paper",
+        text="Trace μ",
+        textangle=90,
+        showarrow=False,
+        font={"size": 12, "color": "black"},
+        xanchor="center",
+    )
+    fig.add_annotation(
+        x=-0.05,
+        y=0.67,
+        xref="paper",
+        yref="paper",
+        text="ACF μ",
+        textangle=90,
+        showarrow=False,
+        font={"size": 12, "color": "black"},
+        xanchor="center",
+    )
+    fig.add_annotation(
+        x=-0.05,
+        y=0.50,
+        xref="paper",
+        yref="paper",
+        text="Hist μ",
+        textangle=90,
+        showarrow=False,
+        font={"size": 12, "color": "black"},
+        xanchor="center",
+    )
+    fig.add_annotation(
+        x=-0.05,
+        y=0.33,
+        xref="paper",
+        yref="paper",
+        text="Trace σ²",
+        textangle=90,
+        showarrow=False,
+        font={"size": 12, "color": "black"},
+        xanchor="center",
+    )
+    fig.add_annotation(
+        x=-0.05,
+        y=0.17,
+        xref="paper",
+        yref="paper",
+        text="ACF σ²",
+        textangle=90,
+        showarrow=False,
+        font={"size": 12, "color": "black"},
+        xanchor="center",
+    )
+    fig.add_annotation(
+        x=-0.05,
+        y=0.00,
+        xref="paper",
+        yref="paper",
+        text="Hist σ²",
+        textangle=90,
+        showarrow=False,
+        font={"size": 12, "color": "black"},
+        xanchor="center",
+    )
+
+    fig.update_xaxes(gridcolor="lightgray")
+    fig.update_yaxes(gridcolor="lightgray")
 
     return fig
 
 
 def generate_plots(args):
     """
-    Load comparison results and generate all plots.
+    Generate comparison plots from saved results.
     """
-    print(f"Generating comparison plots for dataset: {args.data}")
-
-    # Load data
     results = load_comparison_results(args.data)
-
-    # Extract necessary data
-    gibbs_samples = results["gibbs"]["samples"]
-    tempered_samples = results["tempered"]["samples"]
-    gibbs_ci = results["gibbs"]["credible_intervals"]
-    tempered_ci = results["tempered"]["credible_intervals"]
     K = results["parameters"]["K"]
 
-    # Create figures directory
-    figures_dir = Path(f"../figures/{args.data}")
-    figures_dir.mkdir(exist_ok=True, parents=True)
+    # Create output directory
+    output_dir = Path(f"../figures/{args.data}/comparison")
+    output_dir.mkdir(exist_ok=True, parents=True)
 
-    # Generate plots
-    print("Generating trace plots...")
-    fig_trace = create_trace_plots(gibbs_samples, tempered_samples, K)
-    fig_trace.write_image(
-        figures_dir / "comparison_traces.png", width=1400, height=400, scale=2
+    # Generate individual plots for means
+    fig_trace_mu = create_trace_plots(
+        results["gibbs"]["samples_mu"], results["tempered"]["samples_mu"], K, "mu"
     )
+    fig_trace_mu.write_image(output_dir / "trace_comparison_mu.png")
 
-    print("Generating autocorrelation plots...")
-    fig_acf = create_acf_plots(gibbs_samples, tempered_samples, K)
-    fig_acf.write_image(
-        figures_dir / "comparison_acf.png", width=1400, height=400, scale=2
+    fig_acf_mu = create_acf_plots(
+        results["gibbs"]["samples_mu"], results["tempered"]["samples_mu"], K, "mu"
     )
+    fig_acf_mu.write_image(output_dir / "acf_comparison_mu.png")
 
-    print("Generating histograms...")
-    fig_hist = create_histogram_plots(
-        gibbs_samples, tempered_samples, gibbs_ci, tempered_ci, K
+    fig_hist_mu = create_histogram_plots(
+        results["gibbs"]["samples_mu"],
+        results["tempered"]["samples_mu"],
+        results["gibbs"]["credible_intervals_mu"],
+        results["tempered"]["credible_intervals_mu"],
+        "mu",
     )
-    fig_hist.write_image(
-        figures_dir / "comparison_histograms.png", width=1400, height=400, scale=2
-    )
+    fig_hist_mu.write_image(output_dir / "histogram_comparison_mu.png")
 
-    print("Generating complete figure...")
-    fig_complete = create_complete_plot(
-        gibbs_samples, tempered_samples, gibbs_ci, tempered_ci, K
+    # Generate individual plots for variances
+    fig_trace_sigma2 = create_trace_plots(
+        results["gibbs"]["samples_sigma2"],
+        results["tempered"]["samples_sigma2"],
+        K,
+        "sigma2",
     )
-    fig_complete.write_image(
-        figures_dir / "comparison_complete.png", width=1400, height=900, scale=2
-    )
+    fig_trace_sigma2.write_image(output_dir / "trace_comparison_sigma2.png")
 
-    print(f"Plots saved to: {figures_dir}")
+    fig_acf_sigma2 = create_acf_plots(
+        results["gibbs"]["samples_sigma2"],
+        results["tempered"]["samples_sigma2"],
+        K,
+        "sigma2",
+    )
+    fig_acf_sigma2.write_image(output_dir / "acf_comparison_sigma2.png")
 
-    # Print summary
-    print("\n=== RESULTS SUMMARY ===")
-    print(
-        f"Gibbs:    {results['gibbs']['time']:.2f}s,",
-        f"acc={results['gibbs']['acceptance_rate']:.2%},",
-        f"ESS={np.round(results['gibbs']['ess'], 1)}",
+    fig_hist_sigma2 = create_histogram_plots(
+        results["gibbs"]["samples_sigma2"],
+        results["tempered"]["samples_sigma2"],
+        results["gibbs"]["credible_intervals_sigma2"],
+        results["tempered"]["credible_intervals_sigma2"],
+        "sigma2",
     )
-    print(
-        f"Tempered: {results['tempered']['time']:.2f}s,",
-        f"acc={results['tempered']['acceptance_rate']:.2%},",
-        f"ESS={np.round(results['tempered']['ess'], 1)}",
-    )
+    fig_hist_sigma2.write_image(output_dir / "histogram_comparison_sigma2.png")
+
+    # Generate complete comparison plot
+    fig_complete = create_complete_plot(results, K)
+    fig_complete.write_image(output_dir / "complete_comparison.png")
+
+    print(f"Plots saved to: {output_dir}")
 
 
 def run_all(args):
     """
-    Run complete comparison and generate plots.
+    Run complete comparison: compute results and generate plots.
     """
-    # Check if dataset exists
-    data_path = Path(f"../data/{args.data}/data.npy")
-    if not data_path.exists():
-        print(f"Error: Dataset {data_path} not found!")
-        return
-
-    print(f"Running complete comparison on dataset: {args.data}")
-
-    # Step 1: Run comparison
     print("Step 1: Running comparison...")
-    run_comparison(args, show_summary=False)
+    run_comparison(args)
 
-    # Step 2: Generate plots
     print("\nStep 2: Generating plots...")
     generate_plots(args)
 
-    # Final report
-    print("\nComparison completed successfully!")
-    print(f"Results: ../data/{args.data}/comparison_results/")
-    print(f"Plots: ../figures/{args.data}/")
+    print("\nComparison complete!")
 
 
 def main():
     """
-    Main entry point with subcommands.
+    Main function to handle command line arguments and run appropriate functions.
     """
     parser = argparse.ArgumentParser(
-        description="Unified comparison tool: Gibbs Sampler vs Tempered Transitions",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        description="Comparison tool for Gibbs vs Tempered Transitions"
     )
-
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
-    # Common arguments for all subcommands
-    def add_common_args(subparser):
-        subparser.add_argument(
-            "--data", type=str, default="example_1", help="Dataset name"
-        )
-
-    def add_comparison_args(subparser):
-        add_common_args(subparser)
-        subparser.add_argument(
-            "--K", type=int, default=4, help="Number of mixture components"
-        )
-        subparser.add_argument(
-            "--n_iter", type=int, default=5000, help="Number of iterations"
-        )
-        subparser.add_argument("--burn", type=int, default=1000, help="Burn-in period")
-        subparser.add_argument("--seed", type=int, default=0, help="Random seed")
-        subparser.add_argument(
-            "--n_temps", type=int, default=10, help="Number of temperatures"
-        )
-        subparser.add_argument(
-            "--max_temp", type=float, default=10.0, help="Maximum temperature"
-        )
-        subparser.add_argument(
-            "--n_gibbs_per_temp",
-            type=int,
-            default=1,
-            help="Gibbs steps per temperature",
-        )
-
-    # Subcommand: all (run comparison + plots)
-    parser_all = subparsers.add_parser(
-        "all", help="Run complete comparison and generate plots"
+    # Compare command
+    compare_parser = subparsers.add_parser(
+        "compare", help="Run comparison between methods"
     )
-    add_comparison_args(parser_all)
+    add_comparison_args(compare_parser)
 
-    # Subcommand: compare (run comparison only)
-    parser_compare = subparsers.add_parser("compare", help="Run comparison only")
-    add_comparison_args(parser_compare)
+    # Plot command
+    plot_parser = subparsers.add_parser(
+        "plot", help="Generate plots from saved results"
+    )
+    add_common_args(plot_parser)
 
-    # Subcommand: plot (generate plots only)
-    parser_plot = subparsers.add_parser("plot", help="Generate plots only")
-    add_common_args(parser_plot)
+    # All command
+    all_parser = subparsers.add_parser("all", help="Run comparison and generate plots")
+    add_comparison_args(all_parser)
 
     args = parser.parse_args()
 
-    if args.command is None:
-        parser.print_help()
-        return
-
     if args.command == "compare":
-        run_comparison(args, show_summary=True)
-        return
-
-    if args.command == "plot":
+        run_comparison(args)
+    elif args.command == "plot":
         generate_plots(args)
-        return
-
-    run_all(args)
+    elif args.command == "all":
+        run_all(args)
+    else:
+        parser.print_help()
 
 
 if __name__ == "__main__":

@@ -122,7 +122,7 @@ def compute_credible_intervals(pooled: np.ndarray, alpha: float = 0.05):
 
 
 def create_metrics(
-    chains: List[np.ndarray], K: int, data_name: str
+    chains: List[np.ndarray], data_name: str, param_name: str = "mu"
 ) -> Tuple[np.ndarray, List[float], List[float], np.ndarray, np.ndarray]:
     """Create comprehensive convergence and posterior metrics from MCMC chains.
 
@@ -132,35 +132,43 @@ def create_metrics(
 
     Args:
         chains: List of MCMC chains, each containing samples for K parameters.
-        K: Number of parameters (mixture components).
         data_name: Name of the dataset (used for saving metrics file).
+        param_name: Name of the parameter type ("mu" or "sigma2").
 
     Returns:
         Tuple containing:
-        - mu_mean: Posterior mean for each parameter
+        - param_mean: Posterior mean for each parameter
         - rhat: R-hat convergence diagnostic for each parameter
         - ess: Effective sample size for each parameter
         - ci_lower: Lower bounds of 95% credible intervals
         - ci_upper: Upper bounds of 95% credible intervals
     """
+    K = chains[0].shape[1]
     pooled = np.vstack(chains)
-    mu_mean = pooled.mean(axis=0)
+    param_mean = pooled.mean(axis=0)
 
     ci_lower, ci_upper = compute_credible_intervals(pooled)
 
     rhat = [rhat_scalar([c[:, k] for c in chains]) for k in range(K)]
     ess = [ess_1d(pooled[:, k]) for k in range(K)]
 
-    with open(f"../data/{data_name}/metrics.json", "w", encoding="utf-8") as f:
-        json.dump(
-            {
-                "mu_mean": mu_mean.tolist(),
-                "rhat": rhat,
-                "ess": ess,
-                "ci_lower": ci_lower.tolist(),
-                "ci_upper": ci_upper.tolist(),
-            },
-            f,
-        )
+    # Load existing metrics if they exist, otherwise create new dict
+    metrics_file = f"../data/{data_name}/metrics.json"
+    try:
+        with open(metrics_file, encoding="utf-8") as f:
+            metrics_dict = json.load(f)
+    except FileNotFoundError:
+        metrics_dict = {}
 
-    return mu_mean, rhat, ess, ci_lower, ci_upper
+    # Update metrics dict with current parameter
+    metrics_dict[f"{param_name}_mean"] = param_mean.tolist()
+    metrics_dict[f"{param_name}_rhat"] = rhat
+    metrics_dict[f"{param_name}_ess"] = ess
+    metrics_dict[f"{param_name}_ci_lower"] = ci_lower.tolist()
+    metrics_dict[f"{param_name}_ci_upper"] = ci_upper.tolist()
+
+    # Save updated metrics
+    with open(metrics_file, "w", encoding="utf-8") as f:
+        json.dump(metrics_dict, f, indent=2)
+
+    return param_mean, rhat, ess, ci_lower, ci_upper
