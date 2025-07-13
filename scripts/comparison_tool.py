@@ -249,11 +249,11 @@ def load_comparison_results(dataset_name):
 
 def create_trace_plots(gibbs_samples, tempered_samples, K, param_name="mu"):
     """Create comparative trace plots"""
-    param_label = "$\\mu$" if param_name == "mu" else "$\\sigma^2$"
+    param_label = "\\mu" if param_name == "mu" else "\\sigma^2"
     fig = sp.make_subplots(
         rows=1,
         cols=K,
-        subplot_titles=[f"{param_label}_{{{k + 1}}}" for k in range(K)],
+        subplot_titles=[f"${param_label}_{{{k + 1}}}$" for k in range(K)],
         horizontal_spacing=0.05,
     )
 
@@ -278,7 +278,7 @@ def create_trace_plots(gibbs_samples, tempered_samples, K, param_name="mu"):
             )
 
     fig.update_layout(
-        title=f"Trace Plots Comparison - {param_label}",
+        title="$\\text{Trace Plots Comparison - Parameter }" f"{param_label}$",
         height=400,
         width=1200,
         plot_bgcolor="white",
@@ -292,11 +292,11 @@ def create_trace_plots(gibbs_samples, tempered_samples, K, param_name="mu"):
 
 def create_acf_plots(gibbs_samples, tempered_samples, K, param_name="mu", max_lag=40):
     """Create comparative ACF plots"""
-    param_label = "$\\mu$" if param_name == "mu" else "$\\sigma^2$"
+    param_label = "\\mu" if param_name == "mu" else "\\sigma^2"
     fig = sp.make_subplots(
         rows=1,
         cols=K,
-        subplot_titles=[f"{param_label}_{{{k + 1}}}" for k in range(K)],
+        subplot_titles=[f"${param_label}_{{{k + 1}}}$" for k in range(K)],
         horizontal_spacing=0.05,
     )
 
@@ -323,7 +323,7 @@ def create_acf_plots(gibbs_samples, tempered_samples, K, param_name="mu", max_la
             )
 
     fig.update_layout(
-        title=f"ACF Plots Comparison - {param_label}",
+        title="$\\text{ACF Plots Comparison - Parameter }" f"{param_label}$",
         height=400,
         width=1200,
         plot_bgcolor="white",
@@ -340,11 +340,11 @@ def create_histogram_plots(
 ):
     """Create comparative histogram plots"""
     K = gibbs_samples.shape[1]
-    param_label = "$\\mu$" if param_name == "mu" else "$\\sigma^2$"
+    param_label = "\\mu" if param_name == "mu" else "\\sigma^2"
     fig = sp.make_subplots(
         rows=1,
         cols=K,
-        subplot_titles=[f"{param_label}_{{{k + 1}}}" for k in range(K)],
+        subplot_titles=[f"${param_label}_{{{k + 1}}}$" for k in range(K)],
         horizontal_spacing=0.05,
     )
 
@@ -384,7 +384,8 @@ def create_histogram_plots(
             )
 
     fig.update_layout(
-        title=f"Posterior Distributions Comparison - {param_label}",
+        title="$\\text{Posterior Distributions Comparison - Parameter }"
+        f"{param_label}$",
         height=400,
         width=1200,
         barmode="overlay",
@@ -397,90 +398,100 @@ def create_histogram_plots(
     return fig
 
 
-def create_complete_plot(results, K):
-    """Create a complete comparison plot with all diagnostics for both mu and sigma2"""
-    # Create subplots: 6 rows (3 for mu, 3 for sigma2), K columns
+def create_complete_plot(results, K, param_name):
+    """Create a complete comparison plot with all diagnostics for a specific parameter"""
+    param_label = "\\mu" if param_name == "mu" else "\\sigma^2"
+    # Create subplots: 3 rows (trace, ACF, histogram), K columns
     fig = sp.make_subplots(
-        rows=6,
+        rows=3,
         cols=K,
-        subplot_titles=[f"$\\mu_{{{k + 1}}}$" for k in range(K)]
-        + [f"$\\sigma^2_{{{k + 1}}}$" for k in range(K)],
+        subplot_titles=[f"${param_label}_{{{k + 1}}}$" for k in range(K)],
         vertical_spacing=0.08,
         horizontal_spacing=0.05,
-        specs=[[{"secondary_y": False} for _ in range(K)] for _ in range(6)],
+        specs=[[{"secondary_y": False} for _ in range(K)] for _ in range(3)],
     )
 
     colors = ["blue", "red"]
     names = ["Gibbs Sampler", "Tempered Transitions"]
 
-    # Plot mu parameters
-    for param_idx, param_name in enumerate(["mu", "sigma2"]):
-        row_offset = param_idx * 3
+    gibbs_samples = results["gibbs"][f"samples_{param_name}"]
+    tempered_samples = results["tempered"][f"samples_{param_name}"]
+    gibbs_ci = results["gibbs"][f"credible_intervals_{param_name}"]
+    tempered_ci = results["tempered"][f"credible_intervals_{param_name}"]
 
-        gibbs_samples = results["gibbs"][f"samples_{param_name}"]
-        tempered_samples = results["tempered"][f"samples_{param_name}"]
-        gibbs_ci = results["gibbs"][f"credible_intervals_{param_name}"]
-        tempered_ci = results["tempered"][f"credible_intervals_{param_name}"]
+    samples = [gibbs_samples, tempered_samples]
+    cis = [gibbs_ci, tempered_ci]
 
-        samples = [gibbs_samples, tempered_samples]
-        cis = [gibbs_ci, tempered_ci]
+    for k in range(K):
+        col = k + 1
 
-        for k in range(K):
-            col = k + 1
+        # Trace plots
+        for _, (sample, color, name) in enumerate(zip(samples, colors, names)):
+            fig.add_trace(
+                go.Scatter(
+                    x=list(range(len(sample))),
+                    y=sample[:, k],
+                    mode="lines",
+                    name=name,
+                    line={"color": color, "width": 1},
+                    showlegend=(k == 0),
+                ),
+                row=1,
+                col=col,
+            )
 
-            # Trace plots
-            for _, (sample, color, name) in enumerate(zip(samples, colors, names)):
-                fig.add_trace(
-                    go.Scatter(
-                        x=list(range(len(sample))),
-                        y=sample[:, k],
-                        mode="lines",
-                        name=name,
-                        line={"color": color, "width": 1},
-                        showlegend=(k == 0 and param_idx == 0),
-                    ),
-                    row=row_offset + 1,
-                    col=col,
-                )
+        # ACF plots
+        for _, (sample, color, name) in enumerate(zip(samples, colors, names)):
+            acf_vals = acf_1d(sample[:, k], 40)
+            fig.add_trace(
+                go.Scatter(
+                    x=list(range(len(acf_vals))),
+                    y=acf_vals,
+                    mode="lines+markers",
+                    name=name,
+                    line={"color": color},
+                    marker={"color": color, "size": 3},
+                    showlegend=False,
+                ),
+                row=2,
+                col=col,
+            )
 
-            # ACF plots
-            for _, (sample, color, name) in enumerate(zip(samples, colors, names)):
-                acf_vals = acf_1d(sample[:, k], 40)
-                fig.add_trace(
-                    go.Scatter(
-                        x=list(range(len(acf_vals))),
-                        y=acf_vals,
-                        mode="lines+markers",
-                        name=name,
-                        line={"color": color},
-                        marker={"color": color, "size": 3},
-                        showlegend=False,
-                    ),
-                    row=row_offset + 2,
-                    col=col,
-                )
+        # Histograms
+        for _, (sample, color, name, ci) in enumerate(zip(samples, colors, names, cis)):
+            fig.add_trace(
+                go.Histogram(
+                    x=sample[:, k],
+                    nbinsx=30,
+                    name=name,
+                    opacity=0.6,
+                    marker={"color": color},
+                    showlegend=False,
+                ),
+                row=3,
+                col=col,
+            )
 
-            # Histograms
-            for _, (sample, color, name, _) in enumerate(
-                zip(samples, colors, names, cis)
-            ):
-                fig.add_trace(
-                    go.Histogram(
-                        x=sample[:, k],
-                        nbinsx=30,
-                        name=name,
-                        opacity=0.6,
-                        marker={"color": color},
-                        showlegend=False,
-                    ),
-                    row=row_offset + 3,
-                    col=col,
-                )
+            # Add credible interval lines
+            fig.add_vline(
+                x=ci[k][0],
+                line={"dash": "dash", "color": color, "width": 1},
+                row=3,
+                col=col,
+            )
+            fig.add_vline(
+                x=ci[k][1],
+                line={"dash": "dash", "color": color, "width": 1},
+                row=3,
+                col=col,
+            )
 
     # Update layout
+    param_display = "μ" if param_name == "mu" else "σ²"
     fig.update_layout(
-        title="Complete Comparison: Gibbs vs Tempered Transitions",
-        height=1200,
+        title="$\\text{Complete Comparison: Gibbs vs Tempered Transitions - Parameter }"
+        f"{param_display}$",
+        height=800,
         width=1400,
         barmode="overlay",
         plot_bgcolor="white",
@@ -490,21 +501,10 @@ def create_complete_plot(results, K):
     # Add row labels
     fig.add_annotation(
         x=-0.05,
-        y=0.83,
+        y=0.90,
         xref="paper",
         yref="paper",
-        text="Trace μ",
-        textangle=90,
-        showarrow=False,
-        font={"size": 12, "color": "black"},
-        xanchor="center",
-    )
-    fig.add_annotation(
-        x=-0.05,
-        y=0.67,
-        xref="paper",
-        yref="paper",
-        text="ACF μ",
+        text="$\\text{Trace }" f"{param_display}$",
         textangle=90,
         showarrow=False,
         font={"size": 12, "color": "black"},
@@ -515,7 +515,7 @@ def create_complete_plot(results, K):
         y=0.50,
         xref="paper",
         yref="paper",
-        text="Hist μ",
+        text="$\\text{ACF }" f"{param_display}$",
         textangle=90,
         showarrow=False,
         font={"size": 12, "color": "black"},
@@ -523,32 +523,10 @@ def create_complete_plot(results, K):
     )
     fig.add_annotation(
         x=-0.05,
-        y=0.33,
+        y=0.10,
         xref="paper",
         yref="paper",
-        text="Trace σ²",
-        textangle=90,
-        showarrow=False,
-        font={"size": 12, "color": "black"},
-        xanchor="center",
-    )
-    fig.add_annotation(
-        x=-0.05,
-        y=0.17,
-        xref="paper",
-        yref="paper",
-        text="ACF σ²",
-        textangle=90,
-        showarrow=False,
-        font={"size": 12, "color": "black"},
-        xanchor="center",
-    )
-    fig.add_annotation(
-        x=-0.05,
-        y=0.00,
-        xref="paper",
-        yref="paper",
-        text="Hist σ²",
+        text="$\\text{Hist }" f"{param_display}$",
         textangle=90,
         showarrow=False,
         font={"size": 12, "color": "black"},
@@ -619,8 +597,11 @@ def generate_plots(args):
     fig_hist_sigma2.write_image(output_dir / "histogram_comparison_sigma2.png")
 
     # Generate complete comparison plot
-    fig_complete = create_complete_plot(results, K)
-    fig_complete.write_image(output_dir / "complete_comparison.png")
+    fig_complete = create_complete_plot(results, K, "mu")
+    fig_complete.write_image(output_dir / "complete_comparison_mu.png")
+
+    fig_complete = create_complete_plot(results, K, "sigma2")
+    fig_complete.write_image(output_dir / "complete_comparison_sigma2.png")
 
     if args.verbose:
         print(f"Plots saved to: {output_dir}")

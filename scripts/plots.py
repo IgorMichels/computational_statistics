@@ -47,11 +47,11 @@ def setup_plot_colors_and_positions(K: int, n_chains: int):
 def get_param_label(param_name: str, k: Optional[int] = None) -> str:
     """Get parameter label for plots."""
     if param_name == "mu":
-        return f"$\\mu_{{{k + 1}}}$" if k is not None else "$\\mu$"
+        return f"\\mu_{{{k + 1}}}" if k is not None else "\\mu"
     if param_name == "sigma2":
-        return f"$\\sigma^2_{{{k + 1}}}$" if k is not None else "$\\sigma^2$"
+        return f"\\sigma^2_{{{k + 1}}}" if k is not None else "\\sigma^2"
 
-    return f"${param_name}_{{{k + 1}}}$" if k is not None else f"${param_name}$"
+    return f"{param_name}_{{{k + 1}}}" if k is not None else param_name
 
 
 def create_trace_plots(
@@ -92,7 +92,7 @@ def create_trace_plots(
                     y=chains[c][:, k],
                     mode="lines",
                     line={"width": 0.8, "color": param_colors[k]},
-                    name=get_param_label(param_name, k),
+                    name=f"${get_param_label(param_name, k)}$",
                     showlegend=(c == 0),
                 ),
                 row=row,
@@ -102,7 +102,8 @@ def create_trace_plots(
     fig_trace_all.update_layout(
         height=600,
         width=1000,
-        title_text=f"Trace Plots by Chain - {get_param_label(param_name)}",
+        title_text="$\\text{Trace Plots by Chain - Parameter }"
+        f"{get_param_label(param_name)}$",
         plot_bgcolor="white",
         paper_bgcolor="white",
     )
@@ -154,7 +155,7 @@ def create_acf_plots(
                     mode="markers+lines",
                     line={"color": param_colors[k]},
                     marker={"color": param_colors[k]},
-                    name=get_param_label(param_name, k),
+                    name=f"${get_param_label(param_name, k)}$",
                     showlegend=(c == 0),
                 ),
                 row=row,
@@ -164,7 +165,8 @@ def create_acf_plots(
     fig_acf_all.update_layout(
         height=600,
         width=1000,
-        title_text=f"ACF Plots by Chain - {get_param_label(param_name)}",
+        title_text="$\\text{ACF Plots by Chain - Parameter }"
+        f"{get_param_label(param_name)}$",
         plot_bgcolor="white",
         paper_bgcolor="white",
     )
@@ -214,7 +216,7 @@ def create_histogram_plots(
                     nbinsx=30,
                     opacity=0.6,
                     marker={"color": param_colors[k]},
-                    name=get_param_label(param_name, k),
+                    name=f"${get_param_label(param_name, k)}$",
                     showlegend=(c == 0),
                 ),
                 row=row,
@@ -224,7 +226,8 @@ def create_histogram_plots(
     fig_hist_all.update_layout(
         height=600,
         width=1000,
-        title_text=f"Histograms by Chain - {get_param_label(param_name)}",
+        title_text="$\\text{Histograms by Chain - Parameter }"
+        f"{get_param_label(param_name)}$",
         barmode="overlay",
         plot_bgcolor="white",
         paper_bgcolor="white",
