@@ -9,7 +9,8 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 def acf_1d(x: np.ndarray, max_lag: int = 40):
-    """Compute autocorrelation function for a 1D time series.
+    """
+    Compute autocorrelation function for a 1D time series.
 
     Uses FFT to compute the autocorrelation function efficiently.
 
@@ -33,7 +34,8 @@ def acf_1d(x: np.ndarray, max_lag: int = 40):
 
 
 def ess_1d(x: np.ndarray, max_lag: int = 40):
-    """Compute effective sample size for a 1D time series.
+    """
+    Compute effective sample size for a 1D time series.
 
     Uses the autocorrelation function to estimate the effective
     sample size accounting for serial correlation.
@@ -52,7 +54,8 @@ def ess_1d(x: np.ndarray, max_lag: int = 40):
 
 @jit(nopython=True)
 def rhat_scalar_numba(chains_array: np.ndarray):
-    """Compute R-hat convergence diagnostic using Numba optimization.
+    """
+    Compute R-hat convergence diagnostic using Numba optimization.
 
     Numba-optimized implementation of the potential scale reduction factor
     calculation for improved performance.
@@ -87,7 +90,8 @@ def rhat_scalar_numba(chains_array: np.ndarray):
 
 
 def rhat_scalar(chains: List[np.ndarray]):
-    """Compute R-hat convergence diagnostic for multiple chains.
+    """
+    Compute R-hat convergence diagnostic for multiple chains.
 
     Computes the potential scale reduction factor (R-hat) to assess
     convergence of MCMC chains. Values close to 1 indicate good convergence.
@@ -105,7 +109,8 @@ def rhat_scalar(chains: List[np.ndarray]):
 
 
 def compute_credible_intervals(pooled: np.ndarray, alpha: float = 0.05):
-    """Compute credible intervals from posterior samples.
+    """
+    Compute credible intervals from posterior samples.
 
     Calculates equal-tailed credible intervals from pooled posterior samples.
 
@@ -127,7 +132,8 @@ def compute_credible_intervals(pooled: np.ndarray, alpha: float = 0.05):
 def create_metrics(
     chains: List[np.ndarray], data_name: str, param_name: str = "mu"
 ) -> Tuple[np.ndarray, List[float], List[float], np.ndarray, np.ndarray]:
-    """Create comprehensive convergence and posterior metrics from MCMC chains.
+    """
+    Create comprehensive convergence and posterior metrics from MCMC chains.
 
     Computes posterior mean, R-hat convergence diagnostic, effective sample size,
     and credible intervals for each parameter from multiple MCMC chains. The

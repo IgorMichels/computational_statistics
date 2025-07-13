@@ -2,7 +2,8 @@ import numpy as np
 
 
 def parse_prior_args(arg_str, K, param_name):
-    """Parse prior arguments that can be either scalar or vector.
+    """
+    Parse prior arguments that can be either scalar or vector.
 
     Args:
         arg_str: String containing comma-separated values or single value
@@ -29,7 +30,8 @@ def parse_prior_args(arg_str, K, param_name):
 
 
 def add_common_args(subparser):
-    """Add common arguments to an argument parser.
+    """
+    Add common arguments to an argument parser.
 
     Args:
         subparser: ArgumentParser subparser to add arguments to
@@ -49,7 +51,8 @@ def add_common_args(subparser):
 
 
 def add_sampling_args(subparser, n_iter=10000, burn=2000):
-    """Add sampling-related arguments to an argument parser.
+    """
+    Add sampling-related arguments to an argument parser.
 
     Args:
         subparser: ArgumentParser subparser to add arguments to
@@ -64,7 +67,8 @@ def add_sampling_args(subparser, n_iter=10000, burn=2000):
 
 
 def add_prior_args(subparser):
-    """Add prior parameter arguments to an argument parser.
+    """
+    Add prior parameter arguments to an argument parser.
 
     Args:
         subparser: ArgumentParser subparser to add arguments to
@@ -96,7 +100,8 @@ def add_prior_args(subparser):
 
 
 def add_chain_args(subparser):
-    """Add chain-related arguments to an argument parser.
+    """
+    Add chain-related arguments to an argument parser.
 
     Args:
         subparser: ArgumentParser subparser to add arguments to
@@ -105,7 +110,8 @@ def add_chain_args(subparser):
 
 
 def add_tempered_args(subparser, max_temp=10.0, n_gibbs_per_temp=1):
-    """Add tempered transitions specific arguments to an argument parser.
+    """
+    Add tempered transitions specific arguments to an argument parser.
 
     Args:
         subparser: ArgumentParser subparser to add arguments to
@@ -127,7 +133,8 @@ def add_tempered_args(subparser, max_temp=10.0, n_gibbs_per_temp=1):
 
 
 def add_gibbs_args(subparser):
-    """Add all arguments for Gibbs sampler script.
+    """
+    Add all arguments for Gibbs sampler script.
 
     Args:
         subparser: ArgumentParser subparser to add arguments to
@@ -139,7 +146,8 @@ def add_gibbs_args(subparser):
 
 
 def add_tempered_transitions_args(subparser):
-    """Add all arguments for tempered transitions script.
+    """
+    Add all arguments for tempered transitions script.
 
     Args:
         subparser: ArgumentParser subparser to add arguments to
@@ -152,7 +160,8 @@ def add_tempered_transitions_args(subparser):
 
 
 def add_comparison_args(subparser):
-    """Add all arguments for comparison tool script.
+    """
+    Add all arguments for comparison tool script.
 
     Args:
         subparser: ArgumentParser subparser to add arguments to
@@ -164,7 +173,8 @@ def add_comparison_args(subparser):
 
 
 def parse_all_prior_args(args):
-    """Parse all prior arguments from command line args.
+    """
+    Parse all prior arguments from command line args.
 
     Args:
         args: Parsed command line arguments
@@ -181,7 +191,8 @@ def parse_all_prior_args(args):
 
 
 def print_summary_header(method_name, chains=None):
-    """Print a formatted summary header.
+    """
+    Print a formatted summary header.
 
     Args:
         method_name: Name of the sampling method
@@ -194,7 +205,8 @@ def print_summary_header(method_name, chains=None):
 
 
 def print_parameter_summary(param_symbol, metrics):
-    """Print formatted parameter summary statistics.
+    """
+    Print formatted parameter summary statistics.
 
     Args:
         param_symbol: Symbol for the parameter (e.g., "μ", "σ²")
@@ -211,7 +223,8 @@ def print_parameter_summary(param_symbol, metrics):
 def print_runtime_summary(
     times, acceptance_rates=None, n_temps=None, max_temp=None, n_gibbs_per_temp=None
 ):
-    """Print runtime and acceptance rate summary.
+    """
+    Print runtime and acceptance rate summary.
 
     Args:
         times: List of runtime values
@@ -231,7 +244,8 @@ def print_runtime_summary(
 
 
 def create_output_message(data_name):
-    """Create standardized output message for diagnostic files.
+    """
+    Create standardized output message for diagnostic files.
 
     Args:
         data_name: Name of the dataset

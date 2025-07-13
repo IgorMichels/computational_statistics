@@ -17,6 +17,11 @@ def run_comparison(args):
     """
     Run comparison between Gibbs Sampler and Tempered Transitions.
     Save chain results and metrics to data directory.
+    Args:
+        args: Parsed command line arguments containing dataset, parameters, etc.
+
+    Returns:
+        dict: Results dictionary containing samples, metrics, and parameters for both methods.
     """
     # Load data
     y = np.load(f"../data/{args.data}/data.npy")
@@ -192,6 +197,12 @@ def run_comparison(args):
 def load_comparison_results(dataset_name):
     """
     Load comparison results saved by run_comparison.
+
+    Args:
+        dataset_name (str): Name of the dataset to load results for.
+
+    Returns:
+        dict: Results dictionary containing samples, metrics, and parameters for both methods.
     """
     results_dir = Path(f"../data/{dataset_name}/comparison_results")
 
@@ -248,7 +259,18 @@ def load_comparison_results(dataset_name):
 
 
 def create_trace_plots(gibbs_samples, tempered_samples, K, param_name="mu"):
-    """Create comparative trace plots"""
+    """
+    Create comparative trace plots.
+
+    Args:
+        gibbs_samples (np.ndarray): Gibbs sampler samples.
+        tempered_samples (np.ndarray): Tempered transitions samples.
+        K (int): Number of components.
+        param_name (str): Parameter name ('mu' or 'sigma2').
+
+    Returns:
+        plotly.graph_objects.Figure: Trace plots figure.
+    """
     param_label = "\\mu" if param_name == "mu" else "\\sigma^2"
     fig = sp.make_subplots(
         rows=1,
@@ -291,7 +313,19 @@ def create_trace_plots(gibbs_samples, tempered_samples, K, param_name="mu"):
 
 
 def create_acf_plots(gibbs_samples, tempered_samples, K, param_name="mu", max_lag=40):
-    """Create comparative ACF plots"""
+    """
+    Create comparative ACF plots.
+
+    Args:
+        gibbs_samples (np.ndarray): Gibbs sampler samples.
+        tempered_samples (np.ndarray): Tempered transitions samples.
+        K (int): Number of components.
+        param_name (str): Parameter name ('mu' or 'sigma2').
+        max_lag (int): Maximum lag for ACF computation.
+
+    Returns:
+        plotly.graph_objects.Figure: ACF plots figure.
+    """
     param_label = "\\mu" if param_name == "mu" else "\\sigma^2"
     fig = sp.make_subplots(
         rows=1,
@@ -338,7 +372,19 @@ def create_acf_plots(gibbs_samples, tempered_samples, K, param_name="mu", max_la
 def create_histogram_plots(
     gibbs_samples, tempered_samples, gibbs_ci, tempered_ci, param_name="mu"
 ):
-    """Create comparative histogram plots"""
+    """
+    Create comparative histogram plots.
+
+    Args:
+        gibbs_samples (np.ndarray): Gibbs sampler samples.
+        tempered_samples (np.ndarray): Tempered transitions samples.
+        gibbs_ci (np.ndarray): Gibbs credible intervals.
+        tempered_ci (np.ndarray): Tempered credible intervals.
+        param_name (str): Parameter name ('mu' or 'sigma2').
+
+    Returns:
+        plotly.graph_objects.Figure: Histogram plots figure.
+    """
     K = gibbs_samples.shape[1]
     param_label = "\\mu" if param_name == "mu" else "\\sigma^2"
     fig = sp.make_subplots(
@@ -399,7 +445,17 @@ def create_histogram_plots(
 
 
 def create_complete_plot(results, K, param_name):
-    """Create a complete comparison plot with all diagnostics for a specific parameter"""
+    """
+    Create a complete comparison plot with all diagnostics for a specific parameter.
+
+    Args:
+        results (dict): Results dictionary from run_comparison.
+        K (int): Number of components.
+        param_name (str): Parameter name ('mu' or 'sigma2').
+
+    Returns:
+        plotly.graph_objects.Figure: Complete comparison plot figure.
+    """
     param_label = "\\mu" if param_name == "mu" else "\\sigma^2"
     # Create subplots: 3 rows (trace, ACF, histogram), K columns
     fig = sp.make_subplots(
@@ -542,6 +598,9 @@ def create_complete_plot(results, K, param_name):
 def generate_plots(args):
     """
     Generate comparison plots from saved results.
+
+    Args:
+        args: Parsed command line arguments containing dataset and options.
     """
     results = load_comparison_results(args.data)
     K = results["parameters"]["K"]
@@ -610,6 +669,9 @@ def generate_plots(args):
 def run_all(args):
     """
     Run complete comparison: compute results and generate plots.
+
+    Args:
+        args: Parsed command line arguments containing dataset, parameters, etc.
     """
     if args.verbose:
         print("Step 1: Running comparison...")

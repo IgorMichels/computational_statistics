@@ -19,8 +19,13 @@ LOG_2PI = 0.5 * np.log(2 * np.pi)
 
 
 def _cleanup_multiprocessing():
-    """Force cleanup of multiprocessing resources on exit."""
+    """
+    Force cleanup of multiprocessing resources on exit.
 
+    This function ensures that all multiprocessing resources are properly cleaned up
+    when the Python interpreter exits. It checks if the multiprocessing module has
+    a cleanup method and calls it if available.
+    """
     if hasattr(multiprocessing, "_cleanup"):
         multiprocessing._cleanup()
 
@@ -29,7 +34,8 @@ atexit.register(_cleanup_multiprocessing)
 
 
 def compute_log_likelihood(y: np.ndarray, state: State) -> float:
-    """Compute the log-likelihood of the data given the current state.
+    """
+    Compute the log-likelihood of the data given the current state.
 
     Calculates the log-likelihood of observed data points under a Gaussian
     mixture model with current parameters (mixing weights pi, means mu, and variances sigma2).
@@ -57,7 +63,8 @@ def compute_log_likelihood(y: np.ndarray, state: State) -> float:
 
 
 def create_temperature_ladder(n_temps: int, max_temp: float) -> np.ndarray:
-    """Create a temperature ladder for tempered Gibbs sampling.
+    """
+    Create a temperature ladder for tempered Gibbs sampling.
 
     Creates a geometric sequence of temperatures from 1/max_temp to 1.0,
     optionally including the reverse sequence for bidirectional tempering.
@@ -76,7 +83,8 @@ def create_temperature_ladder(n_temps: int, max_temp: float) -> np.ndarray:
 def sample_z(
     y: np.ndarray, state: State, rng: np.random.Generator, beta: float = 1.0
 ) -> np.ndarray:
-    """Sample cluster assignments for each data point with tempering.
+    """
+    Sample cluster assignments for each data point with tempering.
 
     Uses the current values of pi, mu, and sigma2 to compute tempered posterior
     probabilities and sample new cluster assignments using categorical sampling.
@@ -112,7 +120,8 @@ def sample_pi(
     alpha: float = 1.0,
     beta: float = 1.0,
 ) -> np.ndarray:
-    """Sample mixture weights from tempered Dirichlet distribution.
+    """
+    Sample mixture weights from tempered Dirichlet distribution.
 
     Samples new mixing weights from the tempered posterior Dirichlet distribution
     based on current cluster assignments and temperature parameter.
@@ -140,7 +149,8 @@ def sample_mu(
     s0_2: Union[float, np.ndarray] = 4.0,
     beta: float = 1.0,
 ) -> np.ndarray:
-    """Sample mean parameters from tempered normal distributions.
+    """
+    Sample mean parameters from tempered normal distributions.
 
     For each component, samples from the tempered posterior normal distribution
     given the assigned data points, current variances, and prior parameters.
@@ -203,7 +213,8 @@ def sample_sigma2(
     beta0: Union[float, np.ndarray] = 1.0,
     beta: float = 1.0,
 ) -> np.ndarray:
-    """Sample variance parameters from tempered inverse-gamma distributions.
+    """
+    Sample variance parameters from tempered inverse-gamma distributions.
 
     For each component, samples from the tempered posterior inverse-gamma distribution
     given the assigned data points, current means, and prior parameters.
@@ -268,7 +279,8 @@ def gibbs_step(
     beta0: Union[float, np.ndarray] = 1.0,
     beta: float = 1.0,
 ) -> State:
-    """Perform one step of the tempered Gibbs sampler.
+    """
+    Perform one step of the tempered Gibbs sampler.
 
     Sequentially samples z, pi, mu, and sigma2 given the current state and temperature
     parameter. This implements one full cycle of the tempered Gibbs sampler.
@@ -307,7 +319,8 @@ def tempered_transition_step(
     n_gibbs_per_temp: int = 10,
     placebo: bool = False,
 ) -> Tuple[State, bool]:
-    """Perform one tempered transition step with acceptance/rejection.
+    """
+    Perform one tempered transition step with acceptance/rejection.
 
     Moves through the temperature ladder, performing Gibbs steps at each temperature,
     then uses Metropolis criterion to accept or reject the proposal. This implements
@@ -360,7 +373,8 @@ def tempered_transition_step(
 
 
 def _run_single_chain(args):
-    """Helper function to run a single chain (for parallelization).
+    """
+    Helper function to run a single chain (for parallelization).
 
     Unpacks arguments and calls run_chain. This function is designed to work
     with multiprocessing.Pool.map() which requires a single argument function.
@@ -420,7 +434,8 @@ def run_chain(
     placebo: bool = False,
     verbose: bool = False,
 ):
-    """Run a single tempered transitions chain.
+    """
+    Run a single tempered transitions chain.
 
     Executes a complete tempered transitions MCMC chain with specified parameters.
     Includes burn-in period and tracks acceptance rates and runtime statistics.
@@ -513,7 +528,8 @@ def run_parallel_chains(
     placebo: bool = False,
     verbose: bool = False,
 ) -> Tuple[List[np.ndarray], List[np.ndarray], List[float], List[float]]:
-    """Run multiple chains in parallel using multiprocessing.
+    """
+    Run multiple chains in parallel using multiprocessing.
 
     Executes multiple independent tempered transitions chains in parallel to
     improve convergence diagnostics and computational efficiency. Uses all

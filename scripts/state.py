@@ -5,7 +5,8 @@ import numpy as np
 
 @dataclass
 class State:
-    """Represents the state of the Gibbs sampler.
+    """
+    Represents the state of the Gibbs sampler.
 
     Attributes:
         z: Cluster assignments for each data point.
@@ -20,10 +21,11 @@ class State:
     sigma2: np.ndarray
 
     def relabel(self, placebo: bool = False) -> "State":
-        """Relabel the state by sorting components by their means.
+        """
+        Relabel the state by sorting components by their means.
 
-        This function ensures identifiability by ordering components
-        according to their mean values.
+        Args:
+            placebo: If True, return state unchanged (placebo relabeling).
 
         Returns:
             Relabeled state with components sorted by mean.

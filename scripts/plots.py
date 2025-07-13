@@ -9,7 +9,8 @@ from metrics import acf_1d
 
 
 def setup_plot_colors_and_positions(K: int, n_chains: int):
-    """Set up colors and subplot positions for diagnostic plots.
+    """
+    Set up colors and subplot positions for diagnostic plots.
 
     Args:
         K: Number of mixture components.
@@ -45,7 +46,16 @@ def setup_plot_colors_and_positions(K: int, n_chains: int):
 
 
 def get_param_label(param_name: str, k: Optional[int] = None) -> str:
-    """Get parameter label for plots."""
+    """
+    Get formatted parameter label for plots.
+
+    Args:
+        param_name: Parameter type ("mu" or "sigma2").
+        k: Component index (optional).
+
+    Returns:
+        LaTeX-formatted parameter label string.
+    """
     if param_name == "mu":
         return f"\\mu_{{{k + 1}}}" if k is not None else "\\mu"
     if param_name == "sigma2":
@@ -61,7 +71,8 @@ def create_trace_plots(
     data_name: str,
     param_name: str = "mu",
 ):
-    """Create trace plots for all chains and parameters.
+    """
+    Create trace plots for all chains and parameters.
 
     Generates trace plots showing the evolution of parameter values across
     iterations for each MCMC chain. Each parameter is displayed with a
@@ -121,7 +132,8 @@ def create_acf_plots(
     data_name: str,
     param_name: str = "mu",
 ):
-    """Create autocorrelation function plots for all chains and parameters.
+    """
+    Create autocorrelation function plots for all chains and parameters.
 
     Generates autocorrelation function (ACF) plots to assess the serial
     correlation in MCMC samples. Lower autocorrelation indicates better
@@ -184,7 +196,8 @@ def create_histogram_plots(
     data_name: str,
     param_name: str = "mu",
 ):
-    """Create histogram plots for all chains and parameters.
+    """
+    Create histogram plots for all chains and parameters.
 
     Generates histogram plots showing the marginal posterior distributions
     for each parameter from each MCMC chain. Overlapping histograms help
@@ -246,7 +259,8 @@ def create_diagnostic_plots(
     data_name: str,
     param_name: str = "mu",
 ):
-    """Create all diagnostic plots (trace, ACF, and histograms).
+    """
+    Create all diagnostic plots (trace, ACF, and histograms).
 
     Generates a comprehensive set of diagnostic plots for MCMC analysis,
     including trace plots for convergence assessment, autocorrelation
