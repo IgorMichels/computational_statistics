@@ -12,6 +12,7 @@ DEFAULT_SEED = 0
 DEFAULT_CHAINS = 4
 DEFAULT_PLACEBO = False
 DEFAULT_VERBOSE = False
+DEFAULT_LOADING_BAR = False
 
 DEFAULT_M0 = "0.0"
 DEFAULT_S0_2 = "4.0"
@@ -78,6 +79,7 @@ def generate_commands(dataset):
     chains = dataset.get("chains", DEFAULT_CHAINS)
     placebo = dataset.get("placebo", DEFAULT_PLACEBO)
     verbose = dataset.get("verbose", DEFAULT_VERBOSE)
+    loading_bar = dataset.get("loading_bar", DEFAULT_LOADING_BAR)
     m0 = dataset.get("m0", DEFAULT_M0)
     s0_2 = dataset.get("s0_2", DEFAULT_S0_2)
     alpha0 = dataset.get("alpha0", DEFAULT_ALPHA0)
@@ -100,6 +102,9 @@ def generate_commands(dataset):
 
     if verbose:
         base_args += " --verbose"
+
+    if loading_bar:
+        base_args += " --loading_bar"
 
     tempered_args = (
         f"--n_temps {n_temps} --max_temp {max_temp} "

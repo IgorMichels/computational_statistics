@@ -50,6 +50,8 @@ if __name__ == "__main__":
         max_temp=1,
         n_gibbs_per_temp=1,
         placebo=args.placebo,
+        verbose=args.verbose,
+        loading_bar=args.loading_bar,
     )
 
     create_diagnostic_plots("gibbs", chains_mu, args.chains, args.data, param_name="mu")

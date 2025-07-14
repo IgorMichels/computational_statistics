@@ -49,6 +49,8 @@ def run_comparison(args):
         n_temps=1,
         max_temp=1,
         n_gibbs_per_temp=1,
+        verbose=args.verbose,
+        loading_bar=args.loading_bar,
     )
     gibbs_time = time.time() - start_time
 
@@ -69,6 +71,8 @@ def run_comparison(args):
         n_temps=getattr(args, "n_temps", 10),
         max_temp=getattr(args, "max_temp", 5.0),
         n_gibbs_per_temp=getattr(args, "n_gibbs_per_temp", 5),
+        verbose=args.verbose,
+        loading_bar=args.loading_bar,
     )
     tempered_time = time.time() - start_time
 

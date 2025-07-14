@@ -399,6 +399,8 @@ def _run_single_chain(args):
         max_temp,
         n_gibbs_per_temp,
         placebo,
+        verbose,
+        loading_bar,
     ) = args
 
     return run_chain(
@@ -415,6 +417,8 @@ def _run_single_chain(args):
         max_temp,
         n_gibbs_per_temp,
         placebo,
+        verbose,
+        loading_bar,
     )
 
 
@@ -433,6 +437,7 @@ def run_chain(
     n_gibbs_per_temp: int = 5,
     placebo: bool = False,
     verbose: bool = False,
+    loading_bar: bool = False,
 ):
     """
     Run a single tempered transitions chain.
@@ -455,6 +460,7 @@ def run_chain(
         n_gibbs_per_temp: Number of Gibbs steps per temperature.
         placebo: Whether to use placebo relabeling to avoid label switching.
         verbose: Whether to print verbose output.
+        loading_bar: Whether to show progress bars during execution.
     Returns:
         Tuple of (samples_mu, samples_sigma2, runtime, acceptance_rate) where
         samples_mu and samples_sigma2 contain the post-burn-in samples for means
@@ -478,7 +484,7 @@ def run_chain(
     n_accepted = 0
     t0 = time.perf_counter()
 
-    iterations = tqdm(range(n_iter)) if verbose else range(n_iter)
+    iterations = tqdm(range(n_iter)) if (verbose or loading_bar) else range(n_iter)
     for it in iterations:
         state, accepted = tempered_transition_step(
             y,
@@ -527,6 +533,7 @@ def run_parallel_chains(
     n_gibbs_per_temp: int = 5,
     placebo: bool = False,
     verbose: bool = False,
+    loading_bar: bool = False,
 ) -> Tuple[List[np.ndarray], List[np.ndarray], List[float], List[float]]:
     """
     Run multiple chains in parallel using multiprocessing.
@@ -551,6 +558,7 @@ def run_parallel_chains(
         n_gibbs_per_temp: Number of Gibbs steps per temperature.
         placebo: Whether to use placebo relabeling to avoid label switching.
         verbose: Whether to print verbose output.
+        loading_bar: Whether to show progress bars during execution.
     Returns:
         Tuple of (all_samples_mu, all_samples_sigma2, all_runtimes, all_acceptance_rates) where:
         - all_samples_mu: List of mean sample arrays, one per chain
@@ -584,6 +592,8 @@ def run_parallel_chains(
                 max_temp,
                 n_gibbs_per_temp,
                 placebo,
+                verbose,
+                loading_bar,
             )
         )
         for seed in seeds

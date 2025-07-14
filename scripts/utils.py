@@ -48,6 +48,9 @@ def add_common_args(subparser):
     subparser.add_argument(
         "--verbose", action="store_true", help="Indicates if verbose output is desired"
     )
+    subparser.add_argument(
+        "--loading_bar", action="store_true", help="Show progress bars during execution"
+    )
 
 
 def add_sampling_args(subparser, n_iter=10000, burn=2000):

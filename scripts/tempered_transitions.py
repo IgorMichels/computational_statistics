@@ -50,6 +50,8 @@ if __name__ == "__main__":
         max_temp=args.max_temp,
         n_gibbs_per_temp=args.n_gibbs_per_temp,
         placebo=args.placebo,
+        verbose=args.verbose,
+        loading_bar=args.loading_bar,
     )
 
     create_diagnostic_plots(
