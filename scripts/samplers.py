@@ -1,5 +1,6 @@
 # pylint: disable=too-many-arguments
 # pylint: disable=too-many-locals
+# pylint: disable=too-many-statements
 # pylint: disable=protected-access
 
 import atexit
@@ -203,6 +204,47 @@ def sample_mu(
     return mu
 
 
+def sample_mu_single_component(
+    y: np.ndarray,
+    z: np.ndarray,
+    k: int,
+    rng: np.random.Generator,
+    sigma2_k: float,
+    m0_k: float = 0.0,
+    s0_2_k: float = 4.0,
+    beta: float = 1.0,
+) -> float:
+    """
+    Sample mean parameter for a single component from tempered normal distribution.
+
+    Args:
+        y: Observed data points.
+        z: Current cluster assignments.
+        k: Component index to sample.
+        rng: Random number generator.
+        sigma2_k: Current variance parameter for component k.
+        m0_k: Prior mean for component k.
+        s0_2_k: Prior variance for component k.
+        beta: Temperature parameter for tempering the likelihood contribution.
+
+    Returns:
+        New mean parameter for component k.
+    """
+    idx = z == k
+    n_k = idx.sum()
+    prior_prec = 1.0 / s0_2_k
+    prior_term = m0_k * prior_prec
+
+    if n_k == 0:
+        return rng.normal(m0_k, np.sqrt(s0_2_k))
+    y_sum = y[idx].sum()
+    likelihood_prec = beta * n_k / sigma2_k
+    post_prec = prior_prec + likelihood_prec
+    post_var = 1.0 / post_prec
+    post_mean = post_var * (beta * y_sum / sigma2_k + prior_term)
+    return rng.normal(post_mean, np.sqrt(post_var))
+
+
 def sample_sigma2(
     y: np.ndarray,
     z: np.ndarray,
@@ -253,10 +295,8 @@ def sample_sigma2(
         n_k = idx.sum()
 
         if n_k == 0:
-            # Sample from prior
             sigma2[k] = 1.0 / rng.gamma(alpha0[k], 1.0 / beta0[k])
         else:
-            # Sample from tempered posterior
             y_k = y[idx]
             sum_sq_dev = np.sum((y_k - mu[k]) ** 2)
 
@@ -266,6 +306,46 @@ def sample_sigma2(
             sigma2[k] = 1.0 / rng.gamma(post_alpha, 1.0 / post_beta)
 
     return sigma2
+
+
+def sample_sigma2_single_component(
+    y: np.ndarray,
+    z: np.ndarray,
+    mu_k: float,
+    k: int,
+    rng: np.random.Generator,
+    alpha0_k: float = 2.0,
+    beta0_k: float = 1.0,
+    beta: float = 1.0,
+) -> float:
+    """
+    Sample variance parameter for a single component from tempered inverse-gamma distribution.
+
+    Args:
+        y: Observed data points.
+        z: Current cluster assignments.
+        mu_k: Current mean parameter for component k.
+        k: Component index to sample.
+        rng: Random number generator.
+        alpha0_k: Prior shape parameter for component k.
+        beta0_k: Prior scale parameter for component k.
+        beta: Temperature parameter for tempering the likelihood contribution.
+
+    Returns:
+        New variance parameter for component k.
+    """
+    idx = z == k
+    n_k = idx.sum()
+
+    if n_k == 0:
+        return 1.0 / rng.gamma(alpha0_k, 1.0 / beta0_k)
+    y_k = y[idx]
+    sum_sq_dev = np.sum((y_k - mu_k) ** 2)
+
+    post_alpha = alpha0_k + beta * n_k / 2.0
+    post_beta = beta0_k + beta * sum_sq_dev / 2.0
+
+    return 1.0 / rng.gamma(post_alpha, 1.0 / post_beta)
 
 
 def gibbs_step(
@@ -306,6 +386,139 @@ def gibbs_step(
     return State(z, pi, mu, sigma2)
 
 
+def gibbs_step_with_componentwise_acceptance(
+    y: np.ndarray,
+    state: State,
+    K: int,
+    rng: np.random.Generator,
+    m0: Union[float, np.ndarray] = 0.0,
+    s0_2: Union[float, np.ndarray] = 4.0,
+    alpha0: Union[float, np.ndarray] = 2.0,
+    beta0: Union[float, np.ndarray] = 1.0,
+    beta: float = 1.0,
+) -> Tuple[State, dict]:
+    """
+    Perform one step of the tempered Gibbs sampler with componentwise acceptance testing.
+
+    Sequentially samples and tests acceptance for z, pi, mu (component by component),
+    and sigma2 (component by component).
+
+    Args:
+        y: Observed data points.
+        state: Current state of the sampler.
+        K: Number of mixture components.
+        rng: Random number generator.
+        m0: Prior mean(s) for component means.
+        s0_2: Prior variance(s) for component means.
+        alpha0: Prior shape parameter(s) for inverse-gamma distribution.
+        beta0: Prior scale parameter(s) for inverse-gamma distribution.
+        beta: Temperature parameter for tempering.
+
+    Returns:
+        Tuple of (new_state, acceptance_info) where acceptance_info contains
+        information about which components were accepted.
+    """
+    # Convert scalar priors to arrays if needed
+    if np.isscalar(m0):
+        m0 = np.full(K, m0)
+    if np.isscalar(s0_2):
+        s0_2 = np.full(K, s0_2)
+    if np.isscalar(alpha0):
+        alpha0 = np.full(K, alpha0)
+    if np.isscalar(beta0):
+        beta0 = np.full(K, beta0)
+
+    m0 = np.asarray(m0)
+    s0_2 = np.asarray(s0_2)
+    alpha0 = np.asarray(alpha0)
+    beta0 = np.asarray(beta0)
+
+    current_state = state
+    acceptance_info = {
+        "z_accepted": False,
+        "pi_accepted": False,
+        "mu_accepted": np.zeros(K, dtype=bool),
+        "sigma2_accepted": np.zeros(K, dtype=bool),
+    }
+
+    # 1. Sample z and test acceptance
+    current_loglik = compute_log_likelihood(y, current_state)
+    new_z = sample_z(y, current_state, rng, beta=beta)
+    new_state_z = State(new_z, current_state.pi, current_state.mu, current_state.sigma2)
+    new_loglik = compute_log_likelihood(y, new_state_z)
+
+    log_ratio = new_loglik - current_loglik
+    if np.log(rng.random()) < log_ratio:
+        current_state = new_state_z
+        current_loglik = new_loglik
+        acceptance_info["z_accepted"] = True
+
+    # 2. Sample pi and test acceptance
+    new_pi = sample_pi(current_state.z, K, rng, beta=beta)
+    new_state_pi = State(
+        current_state.z, new_pi, current_state.mu, current_state.sigma2
+    )
+    new_loglik = compute_log_likelihood(y, new_state_pi)
+
+    log_ratio = new_loglik - current_loglik
+    if np.log(rng.random()) < log_ratio:
+        current_state = new_state_pi
+        current_loglik = new_loglik
+        acceptance_info["pi_accepted"] = True
+
+    # 3. Sample mu component by component and test acceptance
+    for k in range(K):
+        new_mu_k = sample_mu_single_component(
+            y,
+            current_state.z,
+            k,
+            rng,
+            current_state.sigma2[k],
+            m0[k],
+            s0_2[k],
+            beta=beta,
+        )
+        new_mu = current_state.mu.copy()
+        new_mu[k] = new_mu_k
+        new_state_mu = State(
+            current_state.z, current_state.pi, new_mu, current_state.sigma2
+        )
+        new_loglik = compute_log_likelihood(y, new_state_mu)
+
+        log_ratio = new_loglik - current_loglik
+        if np.log(rng.random()) < log_ratio:
+            current_state = new_state_mu
+            current_loglik = new_loglik
+            acceptance_info["mu_accepted"][k] = True
+
+    # 4. Sample sigma2 component by component and test acceptance
+    for k in range(K):
+        new_sigma2_k = sample_sigma2_single_component(
+            y,
+            current_state.z,
+            current_state.mu[k],
+            k,
+            rng,
+            alpha0[k],
+            beta0[k],
+            beta=beta,
+        )
+        new_sigma2 = current_state.sigma2.copy()
+        new_sigma2[k] = new_sigma2_k
+        new_state_sigma2 = State(
+            current_state.z, current_state.pi, current_state.mu, new_sigma2
+        )
+        new_loglik = compute_log_likelihood(y, new_state_sigma2)
+
+        log_ratio = new_loglik - current_loglik
+        if np.log(rng.random()) < log_ratio:
+            current_state = new_state_sigma2
+            current_loglik = new_loglik
+            acceptance_info["sigma2_accepted"][k] = True
+
+    return current_state, acceptance_info
+
+
 def tempered_transition_step(
     y: np.ndarray,
     state: State,
@@ -318,7 +531,8 @@ def tempered_transition_step(
     beta0: Union[float, np.ndarray] = 1.0,
     n_gibbs_per_temp: int = 10,
     placebo: bool = False,
-) -> Tuple[State, bool]:
+    componentwise_acceptance: bool = False,
+) -> Tuple[State, Union[bool, dict]]:
     """
     Perform one tempered transition step with acceptance/rejection.
 
@@ -338,13 +552,48 @@ def tempered_transition_step(
         beta0: Prior scale parameter(s) for inverse-gamma distribution.
         n_gibbs_per_temp: Number of Gibbs steps per temperature.
         placebo: Whether to use placebo relabeling to avoid label switching.
+        componentwise_acceptance: Whether to use componentwise acceptance testing.
 
     Returns:
         Tuple of (new_state, accepted) where accepted indicates if proposal was accepted.
+        If componentwise_acceptance=True, accepted is a dict with acceptance info.
     """
     initial_state = state
     current_state = state
 
+    if componentwise_acceptance:
+        total_mu_accepted = np.zeros(K)
+        total_sigma2_accepted = np.zeros(K)
+        total_steps = 0
+
+        for beta in temperatures_ladder:
+            for _ in range(n_gibbs_per_temp):
+                (
+                    current_state,
+                    acceptance_info,
+                ) = gibbs_step_with_componentwise_acceptance(
+                    y,
+                    current_state,
+                    K,
+                    rng,
+                    m0=m0,
+                    s0_2=s0_2,
+                    alpha0=alpha0,
+                    beta0=beta0,
+                    beta=beta,
+                )
+                current_state = current_state.relabel(placebo=placebo)
+
+                total_mu_accepted += acceptance_info["mu_accepted"]
+                total_sigma2_accepted += acceptance_info["sigma2_accepted"]
+                total_steps += 1
+
+        acceptance_summary = {
+            "mu_accepted": total_mu_accepted,
+            "sigma2_accepted": total_sigma2_accepted,
+            "total_steps": total_steps,
+        }
+        return current_state, acceptance_summary
     for beta in temperatures_ladder:
         for _ in range(n_gibbs_per_temp):
             current_state = gibbs_step(
@@ -401,6 +650,7 @@ def _run_single_chain(args):
         placebo,
         verbose,
         loading_bar,
+        componentwise_acceptance,
     ) = args
 
     return run_chain(
@@ -419,6 +669,7 @@ def _run_single_chain(args):
         placebo,
         verbose,
         loading_bar,
+        componentwise_acceptance,
     )
 
 
@@ -438,6 +689,7 @@ def run_chain(
     placebo: bool = False,
     verbose: bool = False,
     loading_bar: bool = False,
+    componentwise_acceptance: bool = False,
 ):
     """
     Run a single tempered transitions chain.
@@ -461,6 +713,7 @@ def run_chain(
         placebo: Whether to use placebo relabeling to avoid label switching.
         verbose: Whether to print verbose output.
         loading_bar: Whether to show progress bars during execution.
+        componentwise_acceptance: Whether to use componentwise acceptance testing.
     Returns:
         Tuple of (samples_mu, samples_sigma2, runtime, acceptance_rate) where
         samples_mu and samples_sigma2 contain the post-burn-in samples for means
@@ -481,7 +734,14 @@ def run_chain(
 
     kept_mu = []
     kept_sigma2 = []
-    n_accepted = 0
+
+    if componentwise_acceptance:
+        total_mu_accepted = np.zeros(K)
+        total_sigma2_accepted = np.zeros(K)
+        total_componentwise_steps = 0
+    else:
+        n_accepted = 0
+
     t0 = time.perf_counter()
 
     iterations = tqdm(range(n_iter)) if (verbose or loading_bar) else range(n_iter)
@@ -498,17 +758,34 @@ def run_chain(
             beta0,
             n_gibbs_per_temp,
             placebo,
+            componentwise_acceptance,
         )
 
-        if accepted:
-            n_accepted += 1
+        if componentwise_acceptance:
+            assert isinstance(
+                accepted, dict
+            ), "Expected dict when componentwise_acceptance is True"
+            total_mu_accepted += accepted["mu_accepted"]
+            total_sigma2_accepted += accepted["sigma2_accepted"]
+            total_componentwise_steps += accepted["total_steps"]
+        else:
+            if accepted:
+                n_accepted += 1
 
         if it >= burn:
             relabeled_state = state.relabel(placebo=placebo)
             kept_mu.append(relabeled_state.mu.copy())
             kept_sigma2.append(relabeled_state.sigma2.copy())
 
-    acceptance_rate = n_accepted / n_iter
+    if componentwise_acceptance:
+        mu_acceptance_rates = total_mu_accepted / total_componentwise_steps
+        sigma2_acceptance_rates = total_sigma2_accepted / total_componentwise_steps
+        acceptance_rate = np.mean(
+            np.concatenate([mu_acceptance_rates, sigma2_acceptance_rates])
+        )
+    else:
+        acceptance_rate = n_accepted / n_iter
+
     return (
         np.vstack(kept_mu),
         np.vstack(kept_sigma2),
@@ -534,6 +811,7 @@ def run_parallel_chains(
     placebo: bool = False,
     verbose: bool = False,
     loading_bar: bool = False,
+    componentwise_acceptance: bool = False,
 ) -> Tuple[List[np.ndarray], List[np.ndarray], List[float], List[float]]:
     """
     Run multiple chains in parallel using multiprocessing.
@@ -559,6 +837,7 @@ def run_parallel_chains(
         placebo: Whether to use placebo relabeling to avoid label switching.
         verbose: Whether to print verbose output.
         loading_bar: Whether to show progress bars during execution.
+        componentwise_acceptance: Whether to use componentwise acceptance testing.
     Returns:
         Tuple of (all_samples_mu, all_samples_sigma2, all_runtimes, all_acceptance_rates) where:
         - all_samples_mu: List of mean sample arrays, one per chain
@@ -594,6 +873,7 @@ def run_parallel_chains(
                 placebo,
                 verbose,
                 loading_bar,
+                componentwise_acceptance,
             )
         )
         for seed in seeds

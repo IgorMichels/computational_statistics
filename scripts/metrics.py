@@ -1,6 +1,9 @@
+# pylint: disable=too-many-locals
+# pylint: disable=too-many-arguments
+
 import json
 import warnings
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 from numba import jit
@@ -8,7 +11,7 @@ from numba import jit
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
-def acf_1d(x: np.ndarray, max_lag: int = 40):
+def acf_1d(x: np.ndarray, max_lag: int = 100):
     """
     Compute autocorrelation function for a 1D time series.
 
@@ -33,23 +36,37 @@ def acf_1d(x: np.ndarray, max_lag: int = 40):
     return ac / ac[0]
 
 
-def ess_1d(x: np.ndarray, max_lag: int = 40):
+def ess_multichain(chains: List[np.ndarray], max_lag: int = 100):
     """
-    Compute effective sample size for a 1D time series.
+    Compute effective sample size for multiple chains.
 
     Uses the autocorrelation function to estimate the effective
-    sample size accounting for serial correlation.
+    sample size accounting for serial correlation across multiple chains.
 
     Args:
-        x: Input time series.
+        chains: List of MCMC chains for the same parameter.
         max_lag: Maximum lag to use in autocorrelation computation.
 
     Returns:
         Effective sample size.
     """
-    rho = acf_1d(x, max_lag)[1:]
-    pos = rho[rho > 0]
-    return len(x) / (1 + 2 * pos.sum())
+    m = len(chains)
+    n = min(len(c) for c in chains)
+    chains_array = np.array([c[:n] for c in chains])
+
+    acf_chains = np.array([acf_1d(c - c.mean(), max_lag) for c in chains_array])
+    mean_acf = acf_chains.mean(axis=0)
+
+    rho_sum = 0.0
+    for k in range(1, max_lag - 1, 2):
+        pair = mean_acf[k] + mean_acf[k + 1]
+        if pair < 0:
+            break
+        rho_sum += pair
+
+    ess = m * n / (1 + 2 * rho_sum)
+    ess = min(ess, m * n)
+    return ess
 
 
 @jit(nopython=True)
@@ -130,19 +147,28 @@ def compute_credible_intervals(pooled: np.ndarray, alpha: float = 0.05):
 
 
 def create_metrics(
-    chains: List[np.ndarray], data_name: str, param_name: str = "mu"
+    chains: List[np.ndarray],
+    data_name: str,
+    param_name: str = "mu",
+    model_name: str = "gibbs",
+    acceptance_rates: Optional[List[float]] = None,
+    runtimes: Optional[List[float]] = None,
 ) -> Tuple[np.ndarray, List[float], List[float], np.ndarray, np.ndarray]:
     """
     Create comprehensive convergence and posterior metrics from MCMC chains.
 
     Computes posterior mean, R-hat convergence diagnostic, effective sample size,
     and credible intervals for each parameter from multiple MCMC chains. The
-    computed metrics are also saved to a JSON file in the data directory.
+    computed metrics are also saved to a JSON file in the data directory,
+    organized by model type.
 
     Args:
         chains: List of MCMC chains, each containing samples for K parameters.
         data_name: Name of the dataset (used for saving metrics file).
         param_name: Name of the parameter type ("mu" or "sigma2").
+        model_name: Name of the model/algorithm ("gibbs", "tempered", etc.).
+        acceptance_rates: List of acceptance rates for each chain (optional).
+        runtimes: List of runtime values for each chain (optional).
 
     Returns:
         Tuple containing:
@@ -159,7 +185,7 @@ def create_metrics(
     ci_lower, ci_upper = compute_credible_intervals(pooled)
 
     rhat = [rhat_scalar([c[:, k] for c in chains]) for k in range(K)]
-    ess = [ess_1d(pooled[:, k]) for k in range(K)]
+    ess = [ess_multichain([c[:, k] for c in chains]) for k in range(K)]
 
     # Load existing metrics if they exist, otherwise create new dict
     metrics_file = f"../data/{data_name}/metrics.json"
@@ -169,12 +195,24 @@ def create_metrics(
     except FileNotFoundError:
         metrics_dict = {}
 
-    # Update metrics dict with current parameter
-    metrics_dict[f"{param_name}_mean"] = param_mean.tolist()
-    metrics_dict[f"{param_name}_rhat"] = rhat
-    metrics_dict[f"{param_name}_ess"] = ess
-    metrics_dict[f"{param_name}_ci_lower"] = ci_lower.tolist()
-    metrics_dict[f"{param_name}_ci_upper"] = ci_upper.tolist()
+    if model_name not in metrics_dict:
+        metrics_dict[model_name] = {}
+
+    metrics_dict[model_name][f"{param_name}_mean"] = param_mean.tolist()
+    metrics_dict[model_name][f"{param_name}_rhat"] = rhat
+    metrics_dict[model_name][f"{param_name}_ess"] = ess
+    metrics_dict[model_name][f"{param_name}_ci_lower"] = ci_lower.tolist()
+    metrics_dict[model_name][f"{param_name}_ci_upper"] = ci_upper.tolist()
+
+    # Add acceptance rate if provided
+    if acceptance_rates is not None:
+        metrics_dict[model_name]["acceptance_rates"] = acceptance_rates
+
+    # Add runtimes if provided
+    if runtimes is not None:
+        metrics_dict[model_name]["runtimes"] = runtimes
+        metrics_dict[model_name]["mean_runtime"] = float(np.mean(runtimes))
+        metrics_dict[model_name]["std_runtime"] = float(np.std(runtimes))
 
     # Save updated metrics
     with open(metrics_file, "w", encoding="utf-8") as f:

@@ -1,18 +1,20 @@
 # pylint: disable=too-many-locals
 
+import os
+import shutil
 import subprocess
 import sys
 import time
 from concurrent.futures import ProcessPoolExecutor
 
-DEFAULT_N_ITER = 100_000
-DEFAULT_BURN = 20_000
+DEFAULT_N_ITER = 150_000
+DEFAULT_BURN = 50_000
 DEFAULT_SEED = 0
 
 DEFAULT_CHAINS = 4
 DEFAULT_PLACEBO = False
 DEFAULT_VERBOSE = False
-DEFAULT_LOADING_BAR = False
+DEFAULT_LOADING_BAR = True
 
 DEFAULT_M0 = "0.0"
 DEFAULT_S0_2 = "4.0"
@@ -50,7 +52,7 @@ def run_command(cmd):
     duration = time.time() - start_time
 
     status = "✅" if result.returncode == 0 else "❌"
-    print(f"{status} [{duration:6.2f}s] {cmd}")
+    print(f"{status} [{duration:7.2f}s] {cmd}")
 
     return result.returncode == 0
 
@@ -91,10 +93,10 @@ def generate_commands(dataset):
     data_name = dataset["name"]
     K_val = dataset["K"]
 
-    dataset_args = f"--data {data_name} --K {K_val}"
+    dataset_args = f"--data={data_name} --K={K_val}"
     base_args = (
-        f"--n_iter {n_iter} --burn {burn} --seed {seed}"
-        f" --m0 {m0} --s0_2 {s0_2} --alpha0 {alpha0} --beta0 {beta0}"
+        f"--n_iter={n_iter} --burn={burn} --seed={seed}"
+        f" --m0={m0} --s0_2={s0_2} --alpha0={alpha0} --beta0={beta0}"
     )
 
     if placebo:
@@ -107,8 +109,8 @@ def generate_commands(dataset):
         base_args += " --loading_bar"
 
     tempered_args = (
-        f"--n_temps {n_temps} --max_temp {max_temp} "
-        f"--n_gibbs_per_temp {n_gibbs_per_temp}"
+        f"--n_temps={n_temps} --max_temp={max_temp} "
+        f"--n_gibbs_per_temp={n_gibbs_per_temp}"
     )
 
     return [
@@ -122,15 +124,20 @@ def generate_commands(dataset):
 if __name__ == "__main__":
     start_time = time.time()
 
+    all_commands = []
+    for dataset in datasets:
+        data_name = dataset["name"]
+        if os.path.exists(f"../data/{data_name}"):
+            shutil.rmtree(f"../data/{data_name}")
+        if os.path.exists(f"../figures/{data_name}"):
+            shutil.rmtree(f"../figures/{data_name}")
+        all_commands.extend(generate_commands(dataset))
+
     if not run_command("python generate_data.py"):
         print("❌ Data generation failed")
         sys.exit(1)
 
-    all_commands = []
-    for dataset in datasets:
-        all_commands.extend(generate_commands(dataset))
-
-    with ProcessPoolExecutor(max_workers=4) as executor:
+    with ProcessPoolExecutor(max_workers=2) as executor:
         results = list(executor.map(run_command, all_commands))
 
     failed_count = sum(1 for success in results if not success)
@@ -140,3 +147,5 @@ if __name__ == "__main__":
     print(f"⏱️  Total time: {total_time:.2f}s ({total_time/60:.1f}min)")
     print(f"✅ Successes: {len(results) - failed_count}/{len(results)}")
     print(f"❌ Failures: {failed_count}/{len(results)}")
+
+    run_command("python validations.py")

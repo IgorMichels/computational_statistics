@@ -35,7 +35,7 @@ if __name__ == "__main__":
 
     if args.verbose:
         print(f"Running {args.chains} Gibbs chains…")
-    chains_mu, chains_sigma2, times, _ = run_parallel_chains(
+    chains_mu, chains_sigma2, times, acceptance_rates = run_parallel_chains(
         y,
         args.K,
         args.n_iter,
@@ -59,8 +59,22 @@ if __name__ == "__main__":
         "gibbs", chains_sigma2, args.chains, args.data, param_name="sigma2"
     )
 
-    mu_metrics = create_metrics(chains_mu, args.data, param_name="mu")
-    sigma2_metrics = create_metrics(chains_sigma2, args.data, param_name="sigma2")
+    mu_metrics = create_metrics(
+        chains_mu,
+        args.data,
+        param_name="mu",
+        model_name="gibbs",
+        acceptance_rates=acceptance_rates,
+        runtimes=times,
+    )
+    sigma2_metrics = create_metrics(
+        chains_sigma2,
+        args.data,
+        param_name="sigma2",
+        model_name="gibbs",
+        acceptance_rates=acceptance_rates,
+        runtimes=times,
+    )
 
     if args.verbose:
         print("\n=== GIBBS SUMMARY ===")
@@ -68,5 +82,5 @@ if __name__ == "__main__":
         print()
         print_parameter_summary("σ²", sigma2_metrics)
 
-        print_runtime_summary(times)
+        print_runtime_summary(times, acceptance_rates)
         print(create_output_message(args.data))

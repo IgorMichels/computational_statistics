@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import plotly.graph_objects as go
 import plotly.subplots as sp
-from metrics import acf_1d, compute_credible_intervals, ess_1d
+from metrics import acf_1d, compute_credible_intervals, ess_multichain
 from samplers import run_chain
 from utils import add_common_args, add_comparison_args, parse_all_prior_args
 
@@ -73,6 +73,7 @@ def run_comparison(args):
         n_gibbs_per_temp=getattr(args, "n_gibbs_per_temp", 5),
         verbose=args.verbose,
         loading_bar=args.loading_bar,
+        componentwise_acceptance=True,
     )
     tempered_time = time.time() - start_time
 
@@ -86,10 +87,10 @@ def run_comparison(args):
         [compute_credible_intervals(tempered_samples_mu[:, k]) for k in range(args.K)]
     )
 
-    gibbs_ess_mu = np.array([ess_1d(gibbs_samples_mu[:, k]) for k in range(args.K)])
-    tempered_ess_mu = np.array(
-        [ess_1d(tempered_samples_mu[:, k]) for k in range(args.K)]
-    )
+    gibbs_ess_mu = [ess_multichain([gibbs_samples_mu[:, k]]) for k in range(args.K)]
+    tempered_ess_mu = [
+        ess_multichain([tempered_samples_mu[:, k]]) for k in range(args.K)
+    ]
 
     # Calculate metrics for variances
     gibbs_ci_sigma2 = np.array(
@@ -102,12 +103,12 @@ def run_comparison(args):
         ]
     )
 
-    gibbs_ess_sigma2 = np.array(
-        [ess_1d(gibbs_samples_sigma2[:, k]) for k in range(args.K)]
-    )
-    tempered_ess_sigma2 = np.array(
-        [ess_1d(tempered_samples_sigma2[:, k]) for k in range(args.K)]
-    )
+    gibbs_ess_sigma2 = [
+        ess_multichain([gibbs_samples_sigma2[:, k]]) for k in range(args.K)
+    ]
+    tempered_ess_sigma2 = [
+        ess_multichain([tempered_samples_sigma2[:, k]]) for k in range(args.K)
+    ]
 
     # Create results directory
     results_dir = Path(f"../data/{args.data}/comparison_results")

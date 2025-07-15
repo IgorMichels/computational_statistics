@@ -52,6 +52,7 @@ if __name__ == "__main__":
         placebo=args.placebo,
         verbose=args.verbose,
         loading_bar=args.loading_bar,
+        componentwise_acceptance=True,
     )
 
     create_diagnostic_plots(
@@ -69,8 +70,22 @@ if __name__ == "__main__":
         param_name="sigma2",
     )
 
-    mu_metrics = create_metrics(chains_mu, args.data, param_name="mu")
-    sigma2_metrics = create_metrics(chains_sigma2, args.data, param_name="sigma2")
+    mu_metrics = create_metrics(
+        chains_mu,
+        args.data,
+        param_name="mu",
+        model_name="tempered",
+        acceptance_rates=acceptance_rates,
+        runtimes=times,
+    )
+    sigma2_metrics = create_metrics(
+        chains_sigma2,
+        args.data,
+        param_name="sigma2",
+        model_name="tempered",
+        acceptance_rates=acceptance_rates,
+        runtimes=times,
+    )
 
     if args.verbose:
         print("\n=== TEMPERED TRANSITIONS SUMMARY ===")
