@@ -26,16 +26,19 @@ The project is organized into several key directories containing the core implem
 computational_statistics/
 ├── scripts/                     # Implementation
 │   ├── samplers.py              # Core MCMC algorithms
-│   ├── generate_data.py         # Data generation
-│   ├── gibbs_sampler.py         # Gibbs runner
-│   ├── tempered_transitions.py  # Tempered transitions runner
-│   ├── comparison_tool.py       # Method comparison
-│   ├── metrics.py               # Diagnostics
-│   ├── plots.py                 # Visualization
-│   └── state.py                 # State management
-├── figures/                     # Generated plots
-├── data/                        # Data files (local)
-└── .venv/                       # Virtual environment (local)
+│   ├── generate_data.py         # Synthetic data generation
+│   ├── gibbs_sampler.py         # Gibbs Sampler runner
+│   ├── tempered_transitions.py  # Tempered Transitions runner
+│   ├── comparison_tool.py       # Method comparison & visualization
+│   ├── metrics.py               # Performance metrics
+│   ├── plots.py                 # Visualization routines
+│   ├── utils.py                 # Shared utility functions
+│   ├── run_all_tests.py         # Automated test suite
+│   ├── results.py               # Metric summarization helper
+│   └── state.py                 # Sampling state representation
+├── figures/                     # Experiment plots (example_1, example_2, ...)
+├── data/                        # Local data files
+└── .venv/                       # Local virtual environment
 ```
 
 ## Usage
@@ -57,6 +60,12 @@ python tempered_transitions.py --data example_1 --K 4 --n_iter 5000
 
 # Compare methods
 python comparison_tool.py all --data example_1
+
+# Summarize metrics across experiments
+python results.py
+
+# Run full test suite, including data generation and metrics summary
+python run_all_tests.py
 ```
 
 ### Available Tools
@@ -85,6 +94,11 @@ make clean      # Clean temporary files
 - Side-by-side method execution
 - Performance metrics (ESS, R-hat, runtime)
 - Visualization suite
+
+### Utilities & Diagnostics
+- Common helper functions and transformations (`utils.py`)
+- Automated test execution (`run_all_tests.py`)
+- Metric summarization across experiments (`results.py`)
 
 ## Output
 
