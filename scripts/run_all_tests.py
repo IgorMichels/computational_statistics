@@ -148,4 +148,4 @@ if __name__ == "__main__":
     print(f"✅ Successes: {len(results) - failed_count}/{len(results)}")
     print(f"❌ Failures: {failed_count}/{len(results)}")
 
-    run_command("python validations.py")
+    run_command("python results.py")
